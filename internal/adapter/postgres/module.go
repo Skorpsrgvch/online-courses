@@ -45,3 +45,28 @@ func (r *ModuleRepo) Save(ctx context.Context, module *domain.Module) error {
 	`
 	return r.db.QueryRowContext(ctx, query, module.CourseID, module.Title, module.Order).Scan(&module.ID)
 }
+
+// Update обновляет модуль
+func (r *ModuleRepo) Update(ctx context.Context, module *domain.Module) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE modules 
+		 SET title = $1, "order" = $2 
+		 WHERE id = $3`,
+		module.Title,
+		module.Order,
+		module.ID,
+	)
+	return err
+}
+
+// Delete удаляет модуль и все его уроки (каскадно)
+func (r *ModuleRepo) Delete(ctx context.Context, moduleID int) error {
+	// Сначала удаляем уроки (если нет ON DELETE CASCADE)
+	_, err := r.db.ExecContext(ctx, `DELETE FROM lessons WHERE module_id = $1`, moduleID)
+	if err != nil {
+		return err
+	}
+	// Теперь удаляем модуль
+	_, err = r.db.ExecContext(ctx, `DELETE FROM modules WHERE id = $1`, moduleID)
+	return err
+}

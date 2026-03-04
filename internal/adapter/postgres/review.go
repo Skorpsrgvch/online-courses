@@ -32,22 +32,21 @@ func (r *ReviewRepo) GetApprovedReviewsByCourse(ctx context.Context, courseID in
 	var reviews []*domain.Review
 	for rows.Next() {
 		var (
-			id, userID, courseID int
-			text                 string
-			rating               int
-			approved             bool
-			createdAt            time.Time
+			id, userID, courseIDDB int
+			text                   string
+			rating                 int
+			approved               bool
+			createdAt              time.Time
 		)
-		err := rows.Scan(&id, &userID, &courseID, &text, &rating, &approved, &createdAt)
+		err := rows.Scan(&id, &userID, &courseIDDB, &text, &rating, &approved, &createdAt)
 		if err != nil {
 			return nil, err
 		}
-		reviews = append(reviews, domain.RestoreReview(id, userID, courseID, text, rating, approved, createdAt))
+		reviews = append(reviews, domain.RestoreReview(id, userID, courseIDDB, text, rating, approved, createdAt))
 	}
 	return reviews, nil
 }
 
-// ApproveReview одобряет отзыв (админка)
 func (r *ReviewRepo) ApproveReview(ctx context.Context, reviewID int) error {
 	_, err := r.db.ExecContext(ctx,
 		`UPDATE reviews SET approved = true WHERE id = $1`,

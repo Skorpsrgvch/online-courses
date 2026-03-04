@@ -48,3 +48,27 @@ func (r *LessonRepo) Save(ctx context.Context, lesson *domain.Lesson) error {
 		lesson.ModuleID, lesson.Title, lesson.Description, lesson.VideoEmbedID, lesson.Order,
 	).Scan(&lesson.ID)
 }
+
+// Update обновляет урок
+func (r *LessonRepo) Update(ctx context.Context, lesson *domain.Lesson) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE lessons 
+		 SET title = $1, description = $2, video_embed_id = $3, "order" = $4 
+		 WHERE id = $5`,
+		lesson.Title,
+		lesson.Description,
+		lesson.VideoEmbedID,
+		lesson.Order,
+		lesson.ID,
+	)
+	return err
+}
+
+// Delete удаляет урок
+func (r *LessonRepo) Delete(ctx context.Context, lessonID int) error {
+	_, err := r.db.ExecContext(ctx,
+		`DELETE FROM lessons WHERE id = $1`,
+		lessonID,
+	)
+	return err
+}

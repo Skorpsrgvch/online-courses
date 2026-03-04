@@ -61,3 +61,28 @@ func (r *CourseRepo) Save(ctx context.Context, course *domain.Course) error {
 		course.IsActive,
 	).Scan(&course.ID)
 }
+
+// Update обновляет курс (все поля, кроме ID)
+func (r *CourseRepo) Update(ctx context.Context, course *domain.Course) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE courses 
+		 SET title = $1, description = $2, is_public = $3, price = $4, is_active = $5 
+		 WHERE id = $6`,
+		course.Title,
+		course.Description,
+		course.IsPublic,
+		course.Price,
+		course.IsActive,
+		course.ID,
+	)
+	return err
+}
+
+// SetInactive выполняет логическое удаление курса
+func (r *CourseRepo) SetInactive(ctx context.Context, courseID int) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE courses SET is_active = false WHERE id = $1`,
+		courseID,
+	)
+	return err
+}

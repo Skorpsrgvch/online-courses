@@ -1,27 +1,27 @@
 
--- Таблица пользователей
+-- Пользователи
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,        -- bcrypt
+    password_hash TEXT NOT NULL,
     full_name VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'user')),
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Таблица курсов
+-- Курсы
 CREATE TABLE courses (
     id SERIAL PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     description TEXT,
-    is_public BOOLEAN NOT NULL DEFAULT true,   -- true = бесплатно, false = платный
-    is_active BOOLEAN NOT NULL DEFAULT true,   -- можно скрыть без удаления
-    price INT NOT NULL DEFAULT 0,              -- стоимость в рублях (0 = бесплатный)
+    is_public BOOLEAN NOT NULL DEFAULT true,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    price INT NOT NULL DEFAULT 0,
     author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Таблица модулей (внутри курса)
+-- Модули (внутри курса)
 CREATE TABLE modules (
     id SERIAL PRIMARY KEY,
     course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
@@ -29,13 +29,13 @@ CREATE TABLE modules (
     "order" INTEGER NOT NULL
 );
 
--- Таблица уроков
+-- Уроки
 CREATE TABLE lessons (
     id SERIAL PRIMARY KEY,
     module_id INTEGER NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     description TEXT,
-    video_embed_id VARCHAR(255) NOT NULL,  -- Rutube ID
+    video_embed_id VARCHAR(255) NOT NULL,
     "order" INTEGER NOT NULL
 );
 
@@ -47,19 +47,19 @@ CREATE TABLE user_progress (
     PRIMARY KEY (user_id, lesson_id)
 );
 
--- Отзывы на курсы (с модерацией и оценкой)
+-- Отзывы на курсы
 CREATE TABLE reviews (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
     text TEXT NOT NULL,
-    rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5), 
-    approved BOOLEAN NOT NULL DEFAULT false,  -- модерация
+    rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    approved BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE(user_id, course_id)  -- один отзыв на курс
+    UNIQUE(user_id, course_id)
 );
 
--- Покупки курсов (для платных)
+-- Покупки курсов (фиктивная оплата)
 CREATE TABLE user_purchases (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
@@ -76,7 +76,7 @@ CREATE INDEX idx_reviews_course ON reviews(course_id) WHERE approved = true;
 CREATE INDEX idx_purchases_user ON user_purchases(user_id);
 
 -- Вставка тестового администратора (мамы)
--- Пароль: "mamazdorovye123" → замени хэш на реальный через bcrypt!
+-- Пароль: "mamazdorovye123" → замени хэш на реальный!
 INSERT INTO users (email, password_hash, full_name, role)
 VALUES (
     'anna@example.com',

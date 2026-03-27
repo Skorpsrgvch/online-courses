@@ -34,6 +34,25 @@ func (r *UserRepo) GetUserByID(ctx context.Context, id int) (*domain.User, error
 	return &u, nil
 }
 
+func (r *UserRepo) GetByID(ctx context.Context, id int) (*domain.User, error) {
+	row := r.db.QueryRowContext(ctx,
+		`SELECT id, email, full_name, role, created_at FROM users WHERE id = $1`,
+		id,
+	)
+
+	var u domain.User
+	var createdAt sql.NullTime
+	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.Role, &createdAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, err
+	}
+	u.CreatedAt = createdAt.Time
+	return &u, nil
+}
+
 // GetUserByEmailAndPassword проверяет учётные данные
 func (r *UserRepo) GetUserByEmailAndPassword(ctx context.Context, email, passwordHash string) (*domain.User, error) {
 	query := `SELECT id, email, full_name, role, created_at FROM users WHERE email = $1 AND password_hash = $2`

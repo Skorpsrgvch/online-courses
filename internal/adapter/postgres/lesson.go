@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
 )
@@ -36,6 +37,24 @@ func (r *LessonRepo) GetByModuleID(ctx context.Context, moduleID int) ([]*domain
 		lessons = append(lessons, &l)
 	}
 	return lessons, nil
+}
+
+func (r *LessonRepo) GetByID(ctx context.Context, id int) (*domain.Lesson, error) {
+	row := r.db.QueryRowContext(ctx,
+		`SELECT id, module_id, title, description, video_embed_id, "order"
+		 FROM lessons WHERE id = $1`,
+		id,
+	)
+
+	var l domain.Lesson
+	err := row.Scan(&l.ID, &l.ModuleID, &l.Title, &l.Description, &l.VideoEmbedID, &l.Order)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrLessonNotFound
+		}
+		return nil, err
+	}
+	return &l, nil
 }
 
 func (r *LessonRepo) Save(ctx context.Context, lesson *domain.Lesson) error {

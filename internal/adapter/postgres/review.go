@@ -16,6 +16,15 @@ func NewReviewRepo(db *sql.DB) *ReviewRepo {
 	return &ReviewRepo{db: db}
 }
 
+func (r *ReviewRepo) CreateReview(ctx context.Context, review *domain.Review) error {
+	_, err := r.db.ExecContext(ctx,
+		`INSERT INTO reviews (user_id, course_id, text, rating, approved, created_at)
+		 VALUES ($1, $2, $3, $4, false, $5)`,
+		review.UserID, review.CourseID, review.Text, review.Rating, time.Now().UTC(),
+	)
+	return err
+}
+
 func (r *ReviewRepo) GetApprovedReviewsByCourse(ctx context.Context, courseID int) ([]*domain.Review, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, user_id, course_id, text, rating, approved, created_at

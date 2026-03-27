@@ -11,4 +11,5 @@ var (
 	ErrReviewAlreadyExists = errors.New("review already exists")
 	ErrCourseNotPurchased  = errors.New("course not purchased")
 	ErrInvalidCredentials  = errors.New("invalid email or password")
+	ErrModuleNotFound      = errors.New("module not found")
 )

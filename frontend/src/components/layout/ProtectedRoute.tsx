@@ -1,45 +1,31 @@
+import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
-import { Skeleton } from '@/components/ui/Skeleton';
+import { useAuth } from '../../context/AuthContext';
 
 interface ProtectedRouteProps {
-  children: JSX.Element;
+  children: React.ReactNode;
   allowedRoles?: ('user' | 'admin')[];
-  redirectPath?: string;
 }
 
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
-  children, 
-  allowedRoles = ['user'],
-  redirectPath = '/login'
-}) => {
-  const { user, loading, checkAuth } = useAuth();
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
+  const { isAuthenticated, user, isLoading } = useAuth();
   const location = useLocation();
 
-  // Проверка аутентификации при монтировании
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <Skeleton className="h-64 w-full rounded-xl" />
-        </div>
-        <Footer />
+      <div className="min-h-screen flex items-center justify-center bg-rose-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-rose-500"></div>
       </div>
     );
   }
 
-  if (!user) {
-    return <Navigate to={redirectPath} state={{ from: location }} replace />;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/" replace />;
+  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/dashboard" replace />;
   }
 
-  return children;
+  return <>{children}</>;
 };

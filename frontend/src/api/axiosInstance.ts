@@ -1,98 +1,66 @@
-import axios, { AxiosInstance } from 'axios';
-import { clearAuthTokens } from '@/utils/security';
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import DOMPurify from 'dompurify';
 
-const apiClient: AxiosInstance = axios.create({
-  baseURL: import.meta.env.PROD 
-    ? 'https://api.healthplatform.com/api' 
-    : 'http://localhost:8080/api',
-  withCredentials: true, // Критично для httpOnly cookies
-  timeout: 10000,
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+
+export const apiClient = axios.create({
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json'
-  }
+  },
+  withCredentials: true, // Критично для отправки httpOnly cookies
 });
 
-// Перехватчик запросов для добавления заголовков
-apiClient.interceptors.request.use(
-  (config) => {
-    // Дополнительные заголовки безопасности
-    config.headers['X-Requested-With'] = 'XMLHttpRequest';
-    
-    // Для development можно добавить заголовок, но в production используется только httpOnly
-    if (import.meta.env.DEV && config.url?.includes('/api')) {
-      config.headers['Authorization'] = `Bearer ${document.cookie.replace(/(?:(?:^|.*;\s*)token\s*=\s*([^;]*).*$)|^.*$/, "$1")}`;
+// Очистка входящих данных от потенциального XSS (защита медицинского контента)
+const sanitizeData = (data: any): any => {
+  if (typeof data === 'string') {
+    return DOMPurify.sanitize(data);
+  }
+  if (Array.isArray(data)) {
+    return data.map(sanitizeData);
+  }
+  if (data !== null && typeof data === 'object') {
+    const cleanData: Record<string, any> = {};
+    for (const key in data) {
+      if (Object.prototype.hasOwnProperty.call(data, key)) {
+        cleanData[key] = sanitizeData(data[key]);
+      }
     }
-    
+    return cleanData;
+  }
+  return data;
+};
+
+// Интерцептор запроса
+apiClient.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    // Можно добавить логирование или дополнительную логику перед отправкой
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Перехватчик ответов для обработки ошибок и безопасности
+// Интерцептор ответа
 apiClient.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-    
-    // Защита от XSS: очистка данных перед обработкой
-    if (error.response?.data) {
-      error.response.data = sanitizeResponse(error.response.data);
+  (response) => {
+    // Санификация данных, полученных от сервера, перед передачей в React
+    if (response.data) {
+      response.data = sanitizeData(response.data);
+    }
+    return response;
+  },
+  (error: AxiosError) => {
+    if (error.response?.status === 401) {
+      // Токен истек или невалиден
+      // В реальном приложении здесь можно попытаться вызвать /refresh
+      // Если не удалось - редирект на логин
+      window.location.href = '/login?reason=session_expired';
     }
     
-    // Обработка 401 ошибки (неавторизованный доступ)
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      
-      try {
-        // Попытка обновить токен (если есть refresh эндпоинт)
-        await apiClient.post('/auth/refresh');
-        return apiClient(originalRequest);
-      } catch (refreshError) {
-        // Если обновление токена не удалось - выход из системы
-        clearAuthTokens();
-        window.location.href = '/login';
-        return Promise.reject(refreshError);
-      }
-    }
-    
-    // Обработка 403 ошибки (доступ запрещен)
-    if (error.response?.status === 403) {
-      window.location.href = '/';
-    }
-    
-    return Promise.reject(error);
+    // Формируем понятную ошибку для UI
+    const message = (error.response?.data as any)?.message || 'Произошла ошибка соединения с сервером';
+    return Promise.reject(new Error(message));
   }
 );
-
-// Функция очистки ответа от потенциально опасного контента
-function sanitizeResponse(data: any): any {
-  if (typeof data !== 'object' || data === null) return data;
-  
-  const cleanData = Array.isArray(data) ? [] : {};
-  
-  for (const key in data) {
-    if (Object.prototype.hasOwnProperty.call(data, key)) {
-      const value = data[key];
-      
-      if (typeof value === 'string') {
-        // Очистка строк от XSS
-        cleanData[key] = DOMPurify.sanitize(value, { 
-          ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'p', 'br', 'ul', 'ol', 'li'],
-          FORBID_ATTR: ['style', 'on*']
-        });
-      } else if (typeof value === 'object' && value !== null) {
-        // Рекурсивная очистка вложенных объектов
-        cleanData[key] = sanitizeResponse(value);
-      } else {
-        cleanData[key] = value;
-      }
-    }
-  }
-  
-  return cleanData;
-}
 
 export default apiClient;

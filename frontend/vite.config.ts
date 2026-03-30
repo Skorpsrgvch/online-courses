@@ -1,15 +1,21 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import path from 'path' 
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'), 
+    },
+  },
   server: {
-    host: true, // Разрешаем доступ извне контейнера (нужно для Docker)
-    port: 3000, // Порт для разработки
+    host: true,
+    port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080', // Адрес вашего Go бэкенда
+        target: process.env.VITE_API_URL || 'http://localhost:8080', 
         changeOrigin: true,
         secure: false,
       },

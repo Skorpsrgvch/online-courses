@@ -1,73 +1,20 @@
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
+import MainLayout from './components/layout/MainLayout'; 
 
-// Pages
-import HomePage from './pages/Home';
-import LoginPage from './pages/Auth/Login';
-import RegisterPage from './pages/Auth/Register';
-import DashboardPage from './pages/Dashboard';
-import CoursePage from './pages/Course';
-import AdminPage from './pages/Admin';
-import PasswordRecoveryPage from './pages/Auth/PasswordRecovery';
 
-const router = createBrowserRouter([
-  {
-    path: '/',
-    element: <HomePage />,
-  },
-  {
-    path: '/login',
-    element: <LoginPage />,
-  },
-  {
-    path: '/register',
-    element: <RegisterPage />,
-  },
-  {
-    path: '/password-recovery',
-    element: <PasswordRecoveryPage />,
-  },
-  {
-    path: '/dashboard',
-    element: (
-      <ProtectedRoute>
-        <DashboardPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/course/:id',
-    element: (
-      <ProtectedRoute>
-        <CoursePage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/admin',
-    element: (
-      <ProtectedRoute allowedRoles={['admin']}>
-        <AdminPage />
-      </ProtectedRoute>
-    ),
-  },
-  // Обработка несуществующих маршрутов
-  {
-    path: '*',
-    element: <NavigateToHome />,
-  }
-]);
+import HomePage from './pages/Home/HomePage';
+import LoginPage from './pages/Auth/LoginPage';
+import RegisterPage from './pages/Auth/RegisterPage';
+import PasswordRecoveryPage from './pages/Auth/PasswordRecoveryPage';
+import DashboardPage from './pages/Dashboard/DashboardPage';
+import CoursePage from './pages/Course/CoursePage';
+import AdminPage from './pages/Admin/AdminPage';
 
-function App() {
-  return (
-    <AuthProvider>
-      <RouterProvider router={router} />
-    </AuthProvider>
-  );
-}
 
-// Компонент для перенаправления на главную
+// Компонент для перенаправления на главную (должен быть объявлен ДО использования)
 const NavigateToHome = () => {
   const navigate = useNavigate();
   
@@ -78,4 +25,51 @@ const NavigateToHome = () => {
   return null;
 };
 
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <MainLayout />, // Обертка для всех страниц
+    children: [
+      { index: true, element: <HomePage /> },
+      { path: 'login', element: <LoginPage /> },
+      { path: 'register', element: <RegisterPage /> },
+      { path: 'password-recovery', element: <PasswordRecoveryPage /> },
+      {
+        path: 'dashboard',
+        element: (
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'course/:id',
+        element: (
+          <ProtectedRoute>
+            <CoursePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin',
+        element: (
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminPage />
+          </ProtectedRoute>
+        ),
+      },
+      { path: '*', element: <NavigateToHome /> },
+    ],
+  },
+]);
+
+function App() {
+  return (
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
+  );
+}
+
 export default App;
+

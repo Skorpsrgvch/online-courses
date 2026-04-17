@@ -11,10 +11,11 @@ import (
 )
 
 type createCourseRequest struct {
-	Title       string `json:"title" binding:"required"`
-	Description string `json:"description"`
-	IsPublic    bool   `json:"is_public"`
-	Price       int    `json:"price"`
+	Title         string `json:"title" binding:"required"`
+	Description   string `json:"description"`
+	IsPublic      bool   `json:"is_public"`
+	Price         int    `json:"price"`
+	CoverImageURL string `json:"cover_image_url"`
 }
 
 type CreateHandler struct {
@@ -40,11 +41,12 @@ func (h *CreateHandler) Handle(c *gin.Context) {
 	}
 
 	input := create.Input{
-		Title:       req.Title,
-		Description: req.Description,
-		IsPublic:    req.IsPublic,
-		Price:       req.Price,
-		AuthorID:    userID,
+		Title:         req.Title,
+		Description:   req.Description,
+		IsPublic:      req.IsPublic,
+		Price:         req.Price,
+		AuthorID:      userID,
+		CoverImageURL: req.CoverImageURL,
 	}
 
 	if err := h.usecase.Execute(c.Request.Context(), input); err != nil {

@@ -1,24 +1,41 @@
 import apiClient from './axiosInstance';
-import { Review } from './types';
+import type { Review, CreateReviewDto } from './types';
+
+export interface ReviewsListResponse {
+  reviews: Review[];
+}
 
 export const reviewsService = {
+  // ВНИМАНИЕ: Эндпоинт GET /reviews отсутствует на бэкенде.
+  // Заглушка — вернуть пустой массив до реализации бэкенда.
   getApprovedReviews: async (): Promise<Review[]> => {
-    const response = await apiClient.get<Review[]>('/reviews', { params: { status: 'approved' } });
-    return response.data;
+    // TODO: реализовать GET /reviews?approved=true на бэкенде
+    return [];
   },
 
-  submitReview: async (text: string, rating: number): Promise<Review> => {
-    const response = await apiClient.post<Review>('/reviews', { text, rating });
-    return response.data;
+  submitReview: async (data: CreateReviewDto): Promise<void> => {
+    await apiClient.post('/reviews', data);
   },
-  
-  // Только для админа
+
+  // Одобрение отзыва (только admin)
+  approveReview: async (id: number): Promise<void> => {
+    await apiClient.post(`/reviews/${id}/approve`);
+  },
+
+  // Отклонение отзыва (только admin)
+  rejectReview: async (id: number): Promise<void> => {
+    await apiClient.delete(`/reviews/${id}`);
+  },
+
+  // Получить одобренные отзывы по курсу
+  getCourseReviews: async (courseId: number): Promise<Review[]> => {
+    const response = await apiClient.get<ReviewsListResponse>(`/courses/${courseId}/reviews`);
+    return response.data.reviews;
+  },
+
+  // Получить ожидающие модерации отзывы (только admin)
   getPendingReviews: async (): Promise<Review[]> => {
-    const response = await apiClient.get<Review[]>('/reviews/admin/pending');
-    return response.data;
+    const response = await apiClient.get<ReviewsListResponse>('/reviews/admin/pending');
+    return response.data.reviews;
   },
-
-  approveReview: async (id: string): Promise<void> => {
-    await apiClient.patch(`/reviews/admin/${id}/approve`);
-  }
 };

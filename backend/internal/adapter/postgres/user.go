@@ -100,3 +100,12 @@ func (r *UserRepo) GetUserByEmail(ctx context.Context, email string) (*domain.Us
 	u.CreatedAt = createdAt.Time
 	return &u, passwordHash, nil
 }
+
+// UpdatePassword обновляет пароль пользователя
+func (r *UserRepo) UpdatePassword(ctx context.Context, userID int, passwordHash string) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users SET password_hash = $1 WHERE id = $2`,
+		passwordHash, userID,
+	)
+	return err
+}

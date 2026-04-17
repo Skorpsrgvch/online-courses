@@ -12,11 +12,12 @@ import (
 )
 
 type updateCourseRequest struct {
-	Title       string `json:"title" binding:"required"`
-	Description string `json:"description"`
-	IsPublic    bool   `json:"is_public"`
-	Price       int    `json:"price"`
-	IsActive    bool   `json:"is_active"`
+	Title         string `json:"title" binding:"required"`
+	Description   string `json:"description"`
+	IsPublic      bool   `json:"is_public"`
+	Price         int    `json:"price"`
+	IsActive      bool   `json:"is_active"`
+	CoverImageURL string `json:"cover_image_url"`
 }
 
 type UpdateHandler struct {
@@ -47,13 +48,14 @@ func (h *UpdateHandler) Handle(c *gin.Context) {
 
 	userID := middleware.GetUserID(c)
 	input := update.Input{
-		ID:          courseID,
-		Title:       req.Title,
-		Description: req.Description,
-		IsPublic:    req.IsPublic,
-		Price:       req.Price,
-		IsActive:    req.IsActive,
-		AuthorID:    userID,
+		ID:            courseID,
+		Title:         req.Title,
+		Description:   req.Description,
+		IsPublic:      req.IsPublic,
+		Price:         req.Price,
+		IsActive:      req.IsActive,
+		AuthorID:      userID,
+		CoverImageURL: req.CoverImageURL,
 	}
 
 	if err := h.usecase.Execute(c.Request.Context(), input); err != nil {

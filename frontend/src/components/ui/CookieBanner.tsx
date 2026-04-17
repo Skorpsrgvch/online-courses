@@ -3,7 +3,7 @@ import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 export const CookieBanner: React.FC = () => {
   const [cookiesAccepted, setCookiesAccepted] = useLocalStorage('cookies_accepted', false);
-  const [preferences, setPreferences] = useState({ necessary: true, analytics: false, marketing: false });
+  const [preferences] = useState({ necessary: true, analytics: false, marketing: false });
 
   if (cookiesAccepted) return null;
 

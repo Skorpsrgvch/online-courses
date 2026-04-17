@@ -9,12 +9,6 @@ interface ValidationRule {
   validate?: (value: any) => string | true;
 }
 
-interface FieldState {
-  value: any;
-  error: string;
-  touched: boolean;
-}
-
 export const useFormValidation = <T extends Record<string, any>>(initialValues: T) => {
   const [values, setValues] = useState<T>(initialValues);
   const [errors, setErrors] = useState<Partial<Record<keyof T, string>>>({});

@@ -1,34 +1,50 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authService } from '../api';
-import { User } from '../api/types';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { authService, getAccessToken } from '../api/auth.service';
+import type { AuthResponse, User } from '../api/types';
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string, agreeToTerms: boolean) => Promise<void>;
-  logout: () => Promise<void>;
+  register: (fullName: string, email: string, password: string) => Promise<void>;
+  logout: () => void;
   error: string | null;
   clearError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function authResponseToUser(data: AuthResponse): User {
+  return {
+    id: data.user_id,
+    email: data.email,
+    name: data.name,
+    role: data.role as 'user' | 'admin',
+  };
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Проверка сессии при загрузке приложения
+  // При загрузке проверяем, есть ли у нас валидный токен
   useEffect(() => {
     const checkAuth = async () => {
+      const token = getAccessToken();
+      if (!token) {
+        // Нет токена — пользователь не авторизован
+        setIsLoading(false);
+        return;
+      }
       try {
-        const currentUser = await authService.getCurrentUser();
-        setUser(currentUser);
-      } catch (err) {
+        const me = await authService.getMe();
+        setUser(authResponseToUser(me));
+      } catch {
+        // Токен невалиден
+        authService.clearTokens();
         setUser(null);
-        // Ошибку 401 игнорируем, это нормальная ситуация для неавторизованного пользователя
       } finally {
         setIsLoading(false);
       }
@@ -40,33 +56,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (email: string, password: string) => {
     try {
       setError(null);
-      const userData = await authService.login({ email, password });
-      setUser(userData);
+      const data = await authService.login({ email, password });
+      setUser(authResponseToUser(data));
     } catch (err: any) {
       setError(err.message || 'Ошибка входа');
       throw err;
     }
   };
 
-  const register = async (name: string, email: string, password: string, agreeToTerms: boolean) => {
+  const register = async (fullName: string, email: string, password: string) => {
     try {
       setError(null);
-      const userData = await authService.register({ name, email, password, agreeToTerms });
-      setUser(userData);
+      await authService.register({ full_name: fullName, email, password });
     } catch (err: any) {
       setError(err.message || 'Ошибка регистрации');
       throw err;
     }
   };
 
-  const logout = async () => {
-    try {
-      await authService.logout();
-    } catch (err) {
-      console.error('Ошибка при выходе:', err);
-    } finally {
-      setUser(null);
-    }
+  const logout = () => {
+    authService.logout();
+    setUser(null);
   };
 
   const clearError = () => setError(null);

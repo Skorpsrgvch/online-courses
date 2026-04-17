@@ -20,7 +20,8 @@ func NewCourseRepo(db *sql.DB) *CourseRepo {
 // GetByID возвращает курс по ID
 func (r *CourseRepo) GetByID(ctx context.Context, id int) (*domain.Course, error) {
 	query := `
-		SELECT id, title, description, is_public, price, author_id, is_active
+		SELECT id, title, description, is_public, price, author_id, is_active,
+		       COALESCE(cover_image_url, '')
 		FROM courses
 		WHERE id = $1 AND is_active = true
 	`
@@ -35,6 +36,7 @@ func (r *CourseRepo) GetByID(ctx context.Context, id int) (*domain.Course, error
 		&c.Price,
 		&c.AuthorID,
 		&c.IsActive,
+		&c.CoverImageURL,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -48,8 +50,8 @@ func (r *CourseRepo) GetByID(ctx context.Context, id int) (*domain.Course, error
 // Save создаёт новый курс
 func (r *CourseRepo) Save(ctx context.Context, course *domain.Course) error {
 	query := `
-		INSERT INTO courses (title, description, is_public, price, author_id, is_active)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO courses (title, description, is_public, price, author_id, is_active, cover_image_url)
+		VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''))
 		RETURNING id
 	`
 	return r.db.QueryRowContext(ctx, query,
@@ -59,20 +61,23 @@ func (r *CourseRepo) Save(ctx context.Context, course *domain.Course) error {
 		course.Price,
 		course.AuthorID,
 		course.IsActive,
+		course.CoverImageURL,
 	).Scan(&course.ID)
 }
 
 // Update обновляет курс (все поля, кроме ID)
 func (r *CourseRepo) Update(ctx context.Context, course *domain.Course) error {
 	_, err := r.db.ExecContext(ctx,
-		`UPDATE courses 
-		 SET title = $1, description = $2, is_public = $3, price = $4, is_active = $5 
-		 WHERE id = $6`,
+		`UPDATE courses
+		 SET title = $1, description = $2, is_public = $3, price = $4, is_active = $5,
+		     cover_image_url = NULLIF($6, '')
+		 WHERE id = $7`,
 		course.Title,
 		course.Description,
 		course.IsPublic,
 		course.Price,
 		course.IsActive,
+		course.CoverImageURL,
 		course.ID,
 	)
 	return err

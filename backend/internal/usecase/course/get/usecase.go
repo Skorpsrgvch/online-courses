@@ -9,7 +9,8 @@ import (
 
 type Input struct {
 	CourseID int
-	UserID   int // 0 — если неавторизован
+	UserID   int    // 0 — если неавторизован
+	Role     string // "admin", "user"
 }
 
 type Output struct {
@@ -45,6 +46,11 @@ func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
 	// Платный курс — только авторизованным
 	if input.UserID == 0 {
 		return nil, domain.ErrAccessDenied
+	}
+
+	// Администраторы имеют доступ ко всем курсам
+	if input.Role == "admin" {
+		return &Output{Course: course}, nil
 	}
 
 	// Проверяем покупку

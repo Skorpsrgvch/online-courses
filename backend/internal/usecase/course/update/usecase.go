@@ -8,13 +8,14 @@ import (
 )
 
 type Input struct {
-	ID          int
-	Title       string
-	Description string
-	IsPublic    bool
-	Price       int
-	IsActive    bool
-	AuthorID    int
+	ID            int
+	Title         string
+	Description   string
+	IsPublic      bool
+	Price         int
+	IsActive      bool
+	AuthorID      int
+	CoverImageURL string
 }
 
 type Usecase struct {
@@ -34,9 +35,15 @@ func NewUsecase(updater CourseUpdater, finder CourseFinder) (*Usecase, error) {
 
 func (u *Usecase) Execute(ctx context.Context, input Input) error {
 	// Проверяем существование
-	_, err := u.courseFinder.GetByID(ctx, input.ID)
+	existing, err := u.courseFinder.GetByID(ctx, input.ID)
 	if err != nil {
 		return err
+	}
+
+	// Если coverImageURL не передан, используем существующий
+	coverImageURL := input.CoverImageURL
+	if coverImageURL == "" {
+		coverImageURL = existing.CoverImageURL
 	}
 
 	// Обновляем поля
@@ -48,6 +55,7 @@ func (u *Usecase) Execute(ctx context.Context, input Input) error {
 		input.Price,
 		input.AuthorID,
 		input.IsActive,
+		coverImageURL,
 	)
 
 	return u.courseUpdater.Update(ctx, updated)

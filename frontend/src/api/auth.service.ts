@@ -1,5 +1,5 @@
-import apiClient from './axiosInstance';
-import { User, AuthResponse } from './types';
+import apiClient, { rawClient } from './axiosInstance';
+import type { AuthResponse } from './types';
 
 export interface LoginDto {
   email: string;
@@ -9,35 +9,71 @@ export interface LoginDto {
 export interface RegisterDto {
   email: string;
   password: string;
-  name: string;
-  agreeToTerms: boolean; // Обязательно для ФЗ-152
+  full_name: string;
+}
+
+export interface TokensResponse {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+}
+
+const ACCESS_TOKEN_KEY = 'access_token';
+const REFRESH_TOKEN_KEY = 'refresh_token';
+
+export function getAccessToken(): string | null {
+  return localStorage.getItem(ACCESS_TOKEN_KEY);
+}
+
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+function storeTokens(access: string, refresh: string) {
+  localStorage.setItem(ACCESS_TOKEN_KEY, access);
+  localStorage.setItem(REFRESH_TOKEN_KEY, refresh);
+}
+
+function clearTokens() {
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
 export const authService = {
-  login: async (data: LoginDto): Promise<User> => {
-    const response = await apiClient.post<AuthResponse>('/auth/login', data);
-    return response.data.user;
+  login: async (data: LoginDto): Promise<AuthResponse & TokensResponse> => {
+    const response = await apiClient.post<AuthResponse & TokensResponse>('/auth/login', data);
+    const { access_token, refresh_token } = response.data;
+    storeTokens(access_token, refresh_token);
+    return response.data;
   },
 
-  register: async (data: RegisterDto): Promise<User> => {
-    if (!data.agreeToTerms) {
-      throw new Error('Необходимо согласие на обработку персональных данных');
-    }
-    const response = await apiClient.post<AuthResponse>('/auth/register', data);
-    return response.data.user;
+  register: async (data: RegisterDto): Promise<void> => {
+    await apiClient.post('/auth/register', data);
   },
 
   logout: async (): Promise<void> => {
-    await apiClient.post('/auth/logout');
-    // Сервер очистит cookie, клиенту остается только очистить локальное состояние
+    clearTokens();
   },
 
-  getCurrentUser: async (): Promise<User> => {
-    const response = await apiClient.get<AuthResponse>('/auth/me');
-    return response.data.user;
+  getMe: async (): Promise<AuthResponse> => {
+    // rawClient без интерцепторов — чтобы 401 не вызывал redirect
+    const token = getAccessToken();
+    const response = await rawClient.get<AuthResponse>('/auth/me', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
   },
 
-  refreshToken: async (): Promise<void> => {
-    await apiClient.post('/auth/refresh');
-  }
+  refreshToken: async (): Promise<TokensResponse> => {
+    const refresh = getRefreshToken();
+    if (!refresh) throw new Error('No refresh token');
+    const response = await rawClient.post<TokensResponse>('/auth/refresh', null, {
+      headers: { Authorization: `Bearer ${refresh}` },
+    });
+    const { access_token, refresh_token } = response.data;
+    storeTokens(access_token, refresh_token);
+    return response.data;
+  },
+
+  clearTokens,
 };

@@ -57,7 +57,7 @@ export const Header: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      await register(registerForm.name, registerForm.email, registerForm.password, registerForm.agree);
+      await register(registerForm.name, registerForm.email, registerForm.password);
       setIsRegisterOpen(false);
       setRegisterForm({ name: '', email: '', password: '', agree: false });
     } catch (err: any) {
@@ -127,10 +127,11 @@ export const Header: React.FC = () => {
                   <div className="w-9 h-9 bg-rose-100 rounded-full flex items-center justify-center text-rose-600 font-bold border-2 border-white shadow-sm">
                     {user?.name?.charAt(0).toUpperCase() || 'U'}
                   </div>
+                  <span className="text-sm">{user?.name || 'Кабинет'}</span>
                 </Link>
                 {user?.role === 'admin' && (
-                  <Link to="/admin">
-                    <span className="px-2 py-1 bg-gray-800 text-white text-xs rounded-full">Admin</span>
+                  <Link to="/admin" className="px-3 py-1.5 bg-gray-800 text-white text-xs rounded-full hover:bg-gray-700 transition-colors">
+                    Админ-панель
                   </Link>
                 )}
                 <button
@@ -198,6 +199,15 @@ export const Header: React.FC = () => {
                   >
                     Личный кабинет
                   </Link>
+                  {user?.role === 'admin' && (
+                    <Link
+                      to="/admin"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="block px-4 py-3 text-base font-medium text-gray-700 hover:text-rose-600 bg-gray-50 rounded-xl"
+                    >
+                      Админ-панель
+                    </Link>
+                  )}
                   <button
                     onClick={handleLogout}
                     className="w-full text-left px-4 py-3 text-base font-medium text-red-500 hover:bg-red-50 rounded-xl"
@@ -260,6 +270,11 @@ export const Header: React.FC = () => {
             <button type="button" onClick={() => { setIsLoginOpen(false); setIsRegisterOpen(true); }} className="text-rose-500 hover:underline font-medium">
               Зарегистрироваться
             </button>
+          </p>
+          <p className="text-xs text-center text-gray-400 mt-2">
+            <Link to="/password-recovery" onClick={() => setIsLoginOpen(false)} className="text-rose-400 hover:text-rose-500 hover:underline">
+              Забыли пароль?
+            </Link>
           </p>
         </form>
       </Modal>

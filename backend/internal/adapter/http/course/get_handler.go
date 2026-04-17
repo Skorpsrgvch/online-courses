@@ -21,13 +21,18 @@ func NewGetHandler(usecase *get.Usecase) *GetHandler {
 func (h *GetHandler) Handle(c *gin.Context) {
 	courseID, _ := strconv.Atoi(c.Param("id"))
 	userID := 0
+	role := ""
 	if uid := middleware.GetUserID(c); uid != 0 {
 		userID = uid
+		if r, ok := c.Get("role"); ok {
+			role = r.(string)
+		}
 	}
 
 	input := get.Input{
 		CourseID: courseID,
 		UserID:   userID,
+		Role:     role,
 	}
 
 	output, err := h.usecase.Execute(c.Request.Context(), input)

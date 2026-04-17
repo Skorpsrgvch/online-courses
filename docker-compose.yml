@@ -10,7 +10,6 @@ services:
       POSTGRES_PASSWORD: securepass
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./migrations:/migrations
     ports:
       - "5432:5432"
     healthcheck:
@@ -22,24 +21,36 @@ services:
   # Бэкенд (Go)
   backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile.backend
     environment:
       DB_URL: "postgres://courses:securepass@db:5432/courses?sslmode=disable"
     ports:
-      - "8080:8080"  
+      - "8080:8080"
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - ./backend/migrations:/app/migrations
     command: >
       sh -c "
         echo 'Waiting for DB...' &&
         until pg_isready -h db -U courses -d courses; do sleep 2; done &&
         echo 'Running migrations...' &&
-        migrate -path /root/migrations -database $$DB_URL up &&
+        /usr/local/bin/migrate -path /app/migrations -database $$DB_URL up &&
         echo 'Starting Go server on :8080...' &&
         ./server
       "
+
+  # Фронтенд (React SPA)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
 
 volumes:
   pgdata:

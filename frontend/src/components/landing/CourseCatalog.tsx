@@ -2,11 +2,9 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../ui/Button';
 
-import course1Photo from '../../assets/images/Course1.jpg';
-import course2Photo from '../../assets/images/Course2.jpg';
-
-// Заглушка изображения
 const defaultImg = "https://images.unsplash.com/photo-1544367563-12123d8965cd?q=80&w=2070&auto=format&fit=crop";
+const course1Photo = "https://images.unsplash.com/photo-1519823551278-64ac92734fb1?q=80&w=2070&auto=format&fit=crop";
+const course2Photo = "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=2070&auto=format&fit=crop";
 
 const coursesData = [
   {

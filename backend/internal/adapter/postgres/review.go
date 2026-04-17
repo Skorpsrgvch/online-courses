@@ -56,9 +56,47 @@ func (r *ReviewRepo) GetApprovedReviewsByCourse(ctx context.Context, courseID in
 	return reviews, nil
 }
 
+func (r *ReviewRepo) GetPendingReviews(ctx context.Context) ([]*domain.Review, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, user_id, course_id, text, rating, approved, created_at
+		 FROM reviews
+		 WHERE approved = false
+		 ORDER BY created_at DESC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var reviews []*domain.Review
+	for rows.Next() {
+		var (
+			id, userID, courseID int
+			text                 string
+			rating               int
+			approved             bool
+			createdAt            time.Time
+		)
+		err := rows.Scan(&id, &userID, &courseID, &text, &rating, &approved, &createdAt)
+		if err != nil {
+			return nil, err
+		}
+		reviews = append(reviews, domain.RestoreReview(id, userID, courseID, text, rating, approved, createdAt))
+	}
+	return reviews, nil
+}
+
 func (r *ReviewRepo) ApproveReview(ctx context.Context, reviewID int) error {
 	_, err := r.db.ExecContext(ctx,
 		`UPDATE reviews SET approved = true WHERE id = $1`,
+		reviewID,
+	)
+	return err
+}
+
+func (r *ReviewRepo) RejectReview(ctx context.Context, reviewID int) error {
+	_, err := r.db.ExecContext(ctx,
+		`DELETE FROM reviews WHERE id = $1`,
 		reviewID,
 	)
 	return err

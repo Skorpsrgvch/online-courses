@@ -1,74 +1,51 @@
 import apiClient from './axiosInstance';
-import { User } from './types';
+import type { UserProfile, UserCoursesResponse } from './types';
 
 export interface UpdateProfileDto {
   name?: string;
   email?: string;
-  avatar?: File | null;
 }
 
 export interface ChangePasswordDto {
   currentPassword: string;
   newPassword: string;
-  confirmPassword: string;
 }
 
 export const userService = {
   /**
    * Получение данных текущего пользователя
    */
-  getProfile: async (): Promise<User> => {
-    const response = await apiClient.get<User>('/user/profile');
+  getProfile: async (): Promise<UserProfile> => {
+    const response = await apiClient.get<UserProfile>('/user/profile');
     return response.data;
   },
 
   /**
-   * Обновление профиля (имя, email, аватар)
+   * Получение курсов пользователя с прогрессом
    */
-  updateProfile: async (data: UpdateProfileDto): Promise<User> => {
-    const formData = new FormData();
-    if (data.name) formData.append('name', data.name);
-    if (data.email) formData.append('email', data.email);
-    if (data.avatar) formData.append('avatar', data.avatar);
-
-    const response = await apiClient.put<User>('/user/profile', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+  getCourses: async (): Promise<UserCoursesResponse> => {
+    const response = await apiClient.get<UserCoursesResponse>('/user/courses');
     return response.data;
   },
 
   /**
-   * Смена пароля
+   * Обновление профиля (пока заглушка — бэкенд не реализован)
    */
-  changePassword: async (data: ChangePasswordDto): Promise<void> => {
-    if (data.newPassword !== data.confirmPassword) {
-      throw new Error('Новые пароли не совпадают');
-    }
-    await apiClient.put('/user/change-password', {
-      current_password: data.currentPassword,
-      new_password: data.newPassword,
-    });
+  updateProfile: async (_data: UpdateProfileDto): Promise<UserProfile> => {
+    throw new Error('Обновление профиля пока не реализовано');
   },
 
   /**
-   * Удаление аккаунта (требует подтверждения на бэкенде)
+   * Смена пароля (пока заглушка — бэкенд не реализован)
+   */
+  changePassword: async (_data: ChangePasswordDto): Promise<void> => {
+    throw new Error('Смена пароля пока не реализована');
+  },
+
+  /**
+   * Удаление аккаунта (пока заглушка — бэкенд не реализован)
    */
   deleteAccount: async (): Promise<void> => {
-    await apiClient.delete('/user/account');
+    throw new Error('Удаление аккаунта пока не реализовано');
   },
-  
-  /**
-   * Загрузка настроек приватности
-   */
-  getPrivacySettings: async (): Promise<Record<string, boolean>> => {
-    const response = await apiClient.get<Record<string, boolean>>('/user/privacy-settings');
-    return response.data;
-  },
-
-  /**
-   * Обновление настроек приватности
-   */
-  updatePrivacySettings: async (settings: Record<string, boolean>): Promise<void> => {
-    await apiClient.put('/user/privacy-settings', settings);
-  }
 };

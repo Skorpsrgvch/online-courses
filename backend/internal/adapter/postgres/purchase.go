@@ -31,3 +31,25 @@ func (r *PurchaseRepo) CreatePurchase(ctx context.Context, userID, courseID int)
 	)
 	return err
 }
+
+// GetUserCourseIDs возвращает список ID курсов, купленных пользователем
+func (r *PurchaseRepo) GetUserCourseIDs(ctx context.Context, userID int) ([]int, error) {
+	rows, err := r.db.QueryContext(ctx,
+		"SELECT course_id FROM user_purchases WHERE user_id = $1 ORDER BY purchased_at DESC",
+		userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var courseIDs []int
+	for rows.Next() {
+		var cid int
+		if err := rows.Scan(&cid); err != nil {
+			return nil, err
+		}
+		courseIDs = append(courseIDs, cid)
+	}
+	return courseIDs, nil
+}

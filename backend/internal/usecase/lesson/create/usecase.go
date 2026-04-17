@@ -8,11 +8,13 @@ import (
 )
 
 type Input struct {
-	ModuleID     int
-	Title        string
-	Description  string
-	VideoEmbedID string
-	Order        int
+	ModuleID       int
+	Title          string
+	Description    string
+	LessonType     domain.LessonType
+	VideoEmbedID   string
+	ArticleContent string
+	Order          int
 }
 
 type Usecase struct {
@@ -27,7 +29,15 @@ func NewUsecase(lessonSaver LessonSaver) (*Usecase, error) {
 }
 
 func (u *Usecase) Execute(ctx context.Context, input Input) error {
-	lesson, err := domain.NewLesson(input.Title, input.Description, input.VideoEmbedID, input.ModuleID, input.Order)
+	lesson, err := domain.NewLesson(
+		input.Title,
+		input.Description,
+		input.LessonType,
+		input.VideoEmbedID,
+		input.ArticleContent,
+		input.ModuleID,
+		input.Order,
+	)
 	if err != nil {
 		return err
 	}

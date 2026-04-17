@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go *)",
+      "Bash(npx *)",
+      "Bash(select-object *)",
+      "Bash(mkdir *)",
+      "Bash(type *)",
+      "Bash(move *)",
+      "Bash(rmdir *)",
+      "Bash(docker compose exec *)",
+      "Bash(docker compose restart *)",
+      "Bash(docker compose down)",
+      "Bash(docker compose build *)",
+      "Bash(docker compose up *)",
+      "Bash(curl *)",
+      "Bash(docker compose logs *)",
+      "Bash(print)",
+      "Bash(\")\")",
+      "Bash(sleep *)",
+      "Bash(f *)",
+      "Bash('curl -s -x post http://localhost:8080/api/auth/login -h \"content-type: application/json\" -d \"{\\\"email\\\":\\\"user@test.ru\\\",\\\"password\\\":\\\"user123\\\"}\" ^| python -c \"import sys,json; d=json.load(sys.stdin); print(d['access_token'])\"')",
+      "Bash(do *)",
+      "Bash(powershell *)",
+      "Bash(del *)"
+    ]
+  },
+  "$version": 3
+}

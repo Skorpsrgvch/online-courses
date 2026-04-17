@@ -1,5 +1,6 @@
 import React from 'react';
-import specialistPhoto from '../../assets/images/AboutSection.jpg';
+
+const specialistPhoto = 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=2070&auto=format&fit=crop';
 
 export const AboutSection: React.FC = () => {
   return (
@@ -45,7 +46,7 @@ export const AboutSection: React.FC = () => {
                 "Студент-медик"
               ].map((item, index) => (
                 <div key={index} className="flex items-start gap-4 p-3 rounded-xl hover:bg-white/60 transition-colors duration-300 group">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-rose-500 group-hover:bg-rose-500 group-hover:text-white transition-colors duration-300 shadow-sm">
+                  <div className="shrink-0 w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-rose-500 group-hover:bg-rose-500 group-hover:text-white transition-colors duration-300 shadow-sm">
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>

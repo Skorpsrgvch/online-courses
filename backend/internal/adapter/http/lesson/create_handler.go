@@ -11,11 +11,13 @@ import (
 )
 
 type createLessonRequest struct {
-	ModuleID     int    `json:"module_id" binding:"required"`
-	Title        string `json:"title" binding:"required"`
-	Description  string `json:"description"`
-	VideoEmbedID string `json:"video_embed_id" binding:"required"`
-	Order        int    `json:"order"`
+	ModuleID       int    `json:"module_id" binding:"required"`
+	Title          string `json:"title" binding:"required"`
+	Description    string `json:"description"`
+	LessonType     string `json:"lesson_type" binding:"required,oneof=video article"`
+	VideoEmbedID   string `json:"video_embed_id"`
+	ArticleContent string `json:"article_content"`
+	Order          int    `json:"order"`
 }
 
 type CreateHandler struct {
@@ -39,11 +41,13 @@ func (h *CreateHandler) Handle(c *gin.Context) {
 	}
 
 	input := create.Input{
-		ModuleID:     req.ModuleID,
-		Title:        req.Title,
-		Description:  req.Description,
-		VideoEmbedID: req.VideoEmbedID,
-		Order:        req.Order,
+		ModuleID:       req.ModuleID,
+		Title:          req.Title,
+		Description:    req.Description,
+		LessonType:     domain.LessonType(req.LessonType),
+		VideoEmbedID:   req.VideoEmbedID,
+		ArticleContent: req.ArticleContent,
+		Order:          req.Order,
 	}
 
 	if err := h.usecase.Execute(c.Request.Context(), input); err != nil {

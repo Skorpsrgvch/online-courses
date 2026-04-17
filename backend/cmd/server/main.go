@@ -17,12 +17,16 @@ import (
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/module"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/progress"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/review"
+	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/user"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/postgres"
 	"github.com/Skorpsrgvch/online-courses/internal/usecase/auth/login"
 	"github.com/Skorpsrgvch/online-courses/internal/usecase/auth/register"
 	courseCreate "github.com/Skorpsrgvch/online-courses/internal/usecase/course/create"
+	"github.com/Skorpsrgvch/online-courses/internal/usecase/course/createwithmodules"
 	courseDelete "github.com/Skorpsrgvch/online-courses/internal/usecase/course/delete"
 	courseGet "github.com/Skorpsrgvch/online-courses/internal/usecase/course/get"
+	courseGetFull "github.com/Skorpsrgvch/online-courses/internal/usecase/course/getfull"
+	courseList "github.com/Skorpsrgvch/online-courses/internal/usecase/course/list"
 	courseUpdate "github.com/Skorpsrgvch/online-courses/internal/usecase/course/update"
 
 	lessonCreate "github.com/Skorpsrgvch/online-courses/internal/usecase/lesson/create"
@@ -35,9 +39,16 @@ import (
 	moduleGet "github.com/Skorpsrgvch/online-courses/internal/usecase/module/get"
 	moduleUpdate "github.com/Skorpsrgvch/online-courses/internal/usecase/module/update"
 
+	forgotPassword "github.com/Skorpsrgvch/online-courses/internal/usecase/auth/forgotpassword"
+	resetPassword "github.com/Skorpsrgvch/online-courses/internal/usecase/auth/resetpassword"
 	"github.com/Skorpsrgvch/online-courses/internal/usecase/progress/mark"
 	reviewApprove "github.com/Skorpsrgvch/online-courses/internal/usecase/review/approve"
-	"github.com/Skorpsrgvch/online-courses/internal/usecase/review/create"
+	reviewCreate "github.com/Skorpsrgvch/online-courses/internal/usecase/review/create"
+	reviewList "github.com/Skorpsrgvch/online-courses/internal/usecase/review/list"
+	reviewPending "github.com/Skorpsrgvch/online-courses/internal/usecase/review/pending"
+	reviewReject "github.com/Skorpsrgvch/online-courses/internal/usecase/review/reject"
+	userCourses "github.com/Skorpsrgvch/online-courses/internal/usecase/user/courses"
+	userProfile "github.com/Skorpsrgvch/online-courses/internal/usecase/user/profile"
 	"github.com/Skorpsrgvch/online-courses/pkg/db"
 	"github.com/gin-gonic/gin"
 )
@@ -65,11 +76,13 @@ func main() {
 	// === Репозитории ===
 	userRepo := postgres.NewUserRepo(dbConn)
 	courseRepo := postgres.NewCourseRepo(dbConn)
+	courseTxRepo := postgres.NewCourseTxRepo(dbConn)
 	moduleRepo := postgres.NewModuleRepo(dbConn)
 	lessonRepo := postgres.NewLessonRepo(dbConn)
 	progressRepo := postgres.NewProgressRepo(dbConn)
 	reviewRepo := postgres.NewReviewRepo(dbConn)
 	purchaseRepo := postgres.NewPurchaseRepo(dbConn)
+	resetTokenRepo := postgres.NewResetTokenRepo(dbConn)
 
 	// === Юзкейсы ===
 	// Аутентификация
@@ -78,9 +91,12 @@ func main() {
 
 	// Курсы
 	createCourseUC, _ := courseCreate.NewUsecase(courseRepo)
+	createWithModulesUC, _ := createwithmodules.NewUsecase(courseTxRepo)
 	getCourseUC, _ := courseGet.NewUsecase(courseRepo, purchaseRepo)
+	getFullCourseUC, _ := courseGetFull.NewUsecase(courseRepo, moduleRepo, lessonRepo, purchaseRepo)
 	updateCourseUC, _ := courseUpdate.NewUsecase(courseRepo, courseRepo)
 	deleteCourseUC, _ := courseDelete.NewUsecase(courseRepo)
+	listCourseUC, _ := courseList.NewUsecase(courseRepo)
 
 	// Модули
 	createModuleUC, _ := moduleCreate.NewUsecase(moduleRepo)
@@ -98,19 +114,31 @@ func main() {
 	markProgressUC, _ := mark.NewUsecase(progressRepo)
 
 	// Отзывы
-	createReviewUC, _ := create.NewUsecase(reviewRepo, userRepo, courseRepo)
+	createReviewUC, _ := reviewCreate.NewUsecase(reviewRepo, userRepo, courseRepo)
 	approveReviewUC, _ := reviewApprove.NewUsecase(reviewRepo)
+	listReviewUC, _ := reviewList.NewUsecase(reviewRepo)
+	pendingReviewUC, _ := reviewPending.NewUsecase(reviewRepo)
+	rejectReviewUC, _ := reviewReject.NewUsecase(reviewRepo)
+	userProfileUC, _ := userProfile.NewUsecase(userRepo)
+	userCoursesUC, _ := userCourses.NewUsecase(courseRepo, purchaseRepo, progressRepo)
+	forgotPasswordUC, _ := forgotPassword.NewUsecase(userRepo, resetTokenRepo)
+	resetPasswordUC, _ := resetPassword.NewUsecase(resetTokenRepo, userRepo)
 
 	// === Хендлеры ===
 	// Аутентификация
 	registerHandler := auth.NewRegisterHandler(registerUC)
 	loginHandler := auth.NewLoginHandler(loginUC)
+	forgotPasswordHandler := auth.NewForgotPasswordHandler(forgotPasswordUC)
+	resetPasswordHandler := auth.NewResetPasswordHandler(resetPasswordUC)
 
 	// Курсы
 	createCourseHandler := course.NewCreateHandler(createCourseUC)
+	createWithModulesHandler := course.NewCreateWithModulesHandler(createWithModulesUC)
 	getCourseHandler := course.NewGetHandler(getCourseUC)
+	getFullCourseHandler := course.NewGetFullHandler(getFullCourseUC)
 	updateCourseHandler := course.NewUpdateHandler(updateCourseUC)
 	deleteCourseHandler := course.NewDeleteHandler(deleteCourseUC)
+	listCourseHandler := course.NewListHandler(listCourseUC)
 
 	// Модули
 	createModuleHandler := module.NewCreateHandler(createModuleUC)
@@ -130,22 +158,51 @@ func main() {
 	// Отзывы
 	createReviewHandler := review.NewCreateHandler(createReviewUC)
 	approveReviewHandler := review.NewApproveHandler(approveReviewUC)
+	listReviewHandler := review.NewListHandler(listReviewUC)
+	pendingReviewHandler := review.NewPendingHandler(pendingReviewUC)
+	rejectReviewHandler := review.NewRejectHandler(rejectReviewUC)
+
+	// Пользователь
+	userProfileHandler := user.NewProfileHandler(userProfileUC)
+	userCoursesHandler := user.NewCoursesHandler(userCoursesUC)
 
 	// === Роутер ===
 	r := gin.New()
 	r.Use(gin.Recovery())
 
+	// CORS для фронтенда
+	r.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+		c.Next()
+	})
+
 	// Публичные эндпоинты
 	r.POST("/api/auth/register", registerHandler.Handle)
 	r.POST("/api/auth/login", loginHandler.Handle)
+	r.POST("/api/auth/forgot-password", forgotPasswordHandler.Handle)
+	r.POST("/api/auth/reset-password", resetPasswordHandler.Handle)
 
 	// Защищённые эндпоинты
 	api := r.Group("/api")
 	api.Use(middleware.AuthMiddleware())
 	{
+		// Auth
+		api.GET("/auth/me", auth.NewMeHandler().Handle)
+		api.POST("/auth/refresh", auth.NewRefreshHandler().Handle)
+
 		// Курсы
+		api.GET("/courses", listCourseHandler.Handle)
 		api.POST("/courses", createCourseHandler.Handle)
+		api.POST("/courses/with-modules", createWithModulesHandler.Handle)
 		api.GET("/courses/:id", getCourseHandler.Handle)
+		api.GET("/courses/:id/full", getFullCourseHandler.Handle)
 		api.PUT("/courses/:id", updateCourseHandler.Handle)
 		api.DELETE("/courses/:id", deleteCourseHandler.Handle)
 
@@ -167,6 +224,15 @@ func main() {
 		// Отзывы
 		api.POST("/reviews", createReviewHandler.Handle)
 		api.POST("/reviews/:id/approve", approveReviewHandler.Handle)
+		api.GET("/courses/:id/reviews", listReviewHandler.Handle)
+
+		// Модерация отзывов (только admin)
+		api.GET("/reviews/admin/pending", pendingReviewHandler.Handle)
+		api.DELETE("/reviews/:id", rejectReviewHandler.Handle)
+
+		// Профиль пользователя
+		api.GET("/user/profile", userProfileHandler.Handle)
+		api.GET("/user/courses", userCoursesHandler.Handle)
 	}
 
 	// Запуск сервера

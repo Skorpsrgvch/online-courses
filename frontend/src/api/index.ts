@@ -4,11 +4,24 @@ export { reviewsService } from './reviews.service';
 export { userService } from './user.service';
 export { apiClient } from './axiosInstance';
 
-export type { 
-  User, 
-  Course, 
-  Module, 
-  Lesson, 
-  Review, 
-  AuthResponse 
+export type {
+  User,
+  Course,
+  CourseModule,
+  Lesson,
+  LessonGroup,
+  Review,
+  AuthResponse,
+  LoginDto,
+  RegisterDto,
+  CreateReviewDto,
+  CreateCourseDto,
+  CreateModuleDto,
+  CreateLessonDto,
+  CourseFullResponse,
+  FullCourseModule,
+  FullCourseLesson,
+  UserProfile,
+  UserCourseProgress,
+  UserCoursesResponse,
 } from './types';

@@ -1,7 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import heroImage from '../../assets/images/HeroMain.jpg'; 
 import { Button } from '../ui/Button';
+
+const heroImage = 'https://images.unsplash.com/photo-1544367563-12123d8965cd?q=80&w=2070&auto=format&fit=crop';
 
 
 export const HeroSection: React.FC = () => {
@@ -68,14 +69,10 @@ export const HeroSection: React.FC = () => {
 
             
             <div className="relative rounded-[2rem] overflow-hidden  aspect-[4/3] lg:aspect-[4/5] max-h-[600px] shadow-2xl shadow-rose-200">
-              <img 
-                src={heroImage} 
-                alt="Женское здоровье и гармония" 
+              <img
+                src={heroImage}
+                alt="Женское здоровье и гармония"
                 className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700"
-                onError={(e) => {
-                  // Заглушка, если ваше фото не найдено
-                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1544367563-12123d8965cd?q=80&w=2070&auto=format&fit=crop';
-                }}
               />
             </div>
           </div>

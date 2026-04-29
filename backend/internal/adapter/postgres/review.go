@@ -17,12 +17,25 @@ func NewReviewRepo(db *sql.DB) *ReviewRepo {
 }
 
 func (r *ReviewRepo) CreateReview(ctx context.Context, review *domain.Review) error {
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO reviews (user_id, course_id, text, rating, approved, created_at)
-		 VALUES ($1, $2, $3, $4, false, $5)`,
-		review.UserID, review.CourseID, review.Text, review.Rating, time.Now().UTC(),
-	)
-	return err
+	query := `
+		INSERT INTO reviews (user_id, course_id, text, rating, approved, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (user_id, course_id) DO UPDATE
+		SET 
+			text = EXCLUDED.text,
+			rating = EXCLUDED.rating,
+			approved = EXCLUDED.approved, -- или false, если нужна премодерация при изменении
+			created_at = COALESCE(EXCLUDED.created_at, reviews.created_at) -- сохраняем старую дату или новую
+		RETURNING id
+	`
+	return r.db.QueryRowContext(ctx, query,
+		review.UserID,
+		review.CourseID,
+		review.Text,
+		review.Rating,
+		review.Approved, // обычно false для новых/измененных
+		review.CreatedAt,
+	).Scan(&review.ID)
 }
 
 func (r *ReviewRepo) GetApprovedReviewsByCourse(ctx context.Context, courseID int) ([]*domain.Review, error) {
@@ -38,7 +51,9 @@ func (r *ReviewRepo) GetApprovedReviewsByCourse(ctx context.Context, courseID in
 	}
 	defer rows.Close()
 
-	var reviews []*domain.Review
+	// ИСПРАВЛЕНИЕ: Инициализируем срез, чтобы он не был nil
+	reviews := make([]*domain.Review, 0)
+
 	for rows.Next() {
 		var (
 			id, userID, courseIDDB int
@@ -53,6 +68,12 @@ func (r *ReviewRepo) GetApprovedReviewsByCourse(ctx context.Context, courseID in
 		}
 		reviews = append(reviews, domain.RestoreReview(id, userID, courseIDDB, text, rating, approved, createdAt))
 	}
+
+	// Проверка ошибок итерации
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return reviews, nil
 }
 
@@ -68,7 +89,8 @@ func (r *ReviewRepo) GetPendingReviews(ctx context.Context) ([]*domain.Review, e
 	}
 	defer rows.Close()
 
-	var reviews []*domain.Review
+	reviews := make([]*domain.Review, 0)
+
 	for rows.Next() {
 		var (
 			id, userID, courseID int

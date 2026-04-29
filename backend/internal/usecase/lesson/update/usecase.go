@@ -8,13 +8,12 @@ import (
 )
 
 type Input struct {
-	ID             int
-	Title          string
-	Description    string
-	LessonType     domain.LessonType
-	VideoEmbedID   string
-	ArticleContent string
-	Order          int
+	ID           int
+	Title        string
+	Description  string
+	VideoEmbedID string
+	PrivateKey   *string
+	Order        int
 }
 
 type Usecase struct {
@@ -34,17 +33,15 @@ func (u *Usecase) Execute(ctx context.Context, input Input) error {
 	if err != nil {
 		return err
 	}
-	// Если тип не указан, используем существующий
-	lessonType := input.LessonType
-	if lessonType == "" {
-		lessonType = existing.LessonType
-	}
+
 	updated := domain.RestoreLesson(
-		input.ID, existing.ModuleID, input.Order,
-		input.Title, input.Description,
-		lessonType,
+		input.ID,
+		existing.ModuleID,
+		input.Order,
+		input.Title,
+		input.Description,
 		input.VideoEmbedID,
-		input.ArticleContent,
+		input.PrivateKey,
 	)
 	return u.updater.Update(ctx, updated)
 }

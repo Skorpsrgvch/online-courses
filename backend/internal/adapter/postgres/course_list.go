@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
 )
@@ -10,7 +12,13 @@ import (
 func (r *CourseRepo) ListAll(ctx context.Context) ([]*domain.Course, error) {
 	query := `
 		SELECT id, title, description, is_public, price, author_id, is_active,
-		       COALESCE(cover_image_url, '')
+		       COALESCE(cover_image_url, ''),
+		       COALESCE(contraindications, ''),
+		       COALESCE(recommendations, ''),
+		       COALESCE(target_audience, ''),
+		       COALESCE(course_basis, ''),
+		       COALESCE(class_basis, ''),
+		       COALESCE(bonuses, '[]'::jsonb)
 		FROM courses
 		WHERE is_active = true
 		ORDER BY id
@@ -24,6 +32,9 @@ func (r *CourseRepo) ListAll(ctx context.Context) ([]*domain.Course, error) {
 	var courses []*domain.Course
 	for rows.Next() {
 		var c domain.Course
+		var bonusesRaw []byte
+		var coverURL, contraindications, recommendations, targetAudience, courseBasis, classBasis sql.NullString
+
 		if err := rows.Scan(
 			&c.ID,
 			&c.Title,
@@ -32,10 +43,44 @@ func (r *CourseRepo) ListAll(ctx context.Context) ([]*domain.Course, error) {
 			&c.Price,
 			&c.AuthorID,
 			&c.IsActive,
-			&c.CoverImageURL,
+			&coverURL,
+			&contraindications,
+			&recommendations,
+			&targetAudience,
+			&courseBasis,
+			&classBasis,
+			&bonusesRaw,
 		); err != nil {
 			return nil, err
 		}
+
+		// Заполняем поля из NullString
+		if coverURL.Valid {
+			c.CoverImageURL = coverURL.String
+		}
+		if contraindications.Valid {
+			c.Contraindications = contraindications.String
+		}
+		if recommendations.Valid {
+			c.Recommendations = recommendations.String
+		}
+		if targetAudience.Valid {
+			c.TargetAudience = targetAudience.String
+		}
+		if courseBasis.Valid {
+			c.CourseBasis = courseBasis.String
+		}
+		if classBasis.Valid {
+			c.ClassBasis = classBasis.String
+		}
+
+		// Парсим бонусы
+		if len(bonusesRaw) > 0 {
+			json.Unmarshal(bonusesRaw, &c.Bonuses)
+		} else {
+			c.Bonuses = []domain.BonusItem{}
+		}
+
 		courses = append(courses, &c)
 	}
 

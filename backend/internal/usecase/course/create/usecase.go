@@ -7,19 +7,6 @@ import (
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
 )
 
-type Input struct {
-	Title         string
-	Description   string
-	IsPublic      bool
-	Price         int
-	AuthorID      int
-	CoverImageURL string
-}
-
-type Usecase struct {
-	courseSaver CourseSaver
-}
-
 func NewUsecase(courseSaver CourseSaver) (*Usecase, error) {
 	if courseSaver == nil {
 		return nil, errors.New("courseSaver is required")
@@ -28,6 +15,12 @@ func NewUsecase(courseSaver CourseSaver) (*Usecase, error) {
 }
 
 func (u *Usecase) Execute(ctx context.Context, input Input) error {
+	// Защита от nil для бонусов
+	bonuses := input.Bonuses
+	if bonuses == nil {
+		bonuses = []domain.BonusItem{}
+	}
+
 	course, err := domain.NewCourse(
 		input.Title,
 		input.Description,
@@ -35,9 +28,17 @@ func (u *Usecase) Execute(ctx context.Context, input Input) error {
 		input.Price,
 		input.AuthorID,
 		input.CoverImageURL,
+		input.Contraindications,
+		input.Recommendations,
+		input.TargetAudience,
+		input.CourseBasis,
+		input.ClassBasis,
 	)
 	if err != nil {
 		return err
 	}
+
+	course.Bonuses = bonuses
+
 	return u.courseSaver.Save(ctx, course)
 }

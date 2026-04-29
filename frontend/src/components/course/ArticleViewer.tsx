@@ -5,10 +5,6 @@ interface ArticleViewerProps {
   content: string;
 }
 
-/**
- * Компонент для безопасного рендеринга HTML-контента статей.
- * Использует DOMPurify для XSS-санитизации.
- */
 export const ArticleViewer: React.FC<ArticleViewerProps> = ({ content }) => {
   const safeHtml = sanitizeArticleHtml(content);
 

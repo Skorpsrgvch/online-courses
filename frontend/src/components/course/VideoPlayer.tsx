@@ -8,7 +8,7 @@ interface VideoPlayerProps {
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, onProgress }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Простая эмуляция отслеживания просмотра для RuTube (в реальности нужен postMessage API провайдера)
+  // Простая эмуляция отслеживания просмотра для RuTube 
   useEffect(() => {
     const checkProgress = setInterval(() => {
       // Логика проверки прогресса зависит от конкретного плеера

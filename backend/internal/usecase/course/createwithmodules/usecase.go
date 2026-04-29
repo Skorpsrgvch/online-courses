@@ -8,21 +8,7 @@ import (
 	"github.com/Skorpsrgvch/online-courses/internal/usecase/course/create"
 )
 
-type Input struct {
-	Title         string
-	Description   string
-	IsPublic      bool
-	Price         int
-	AuthorID      int
-	CoverImageURL string
-	Modules       []create.ModuleInput
-}
-
-type Usecase struct {
-	courseSaver CourseModuleSaver
-}
-
-func NewUsecase(courseSaver CourseModuleSaver) (*Usecase, error) {
+func NewUsecase(courseSaver create.CourseModuleSaver) (*Usecase, error) {
 	if courseSaver == nil {
 		return nil, errors.New("courseSaver is required")
 	}
@@ -30,6 +16,7 @@ func NewUsecase(courseSaver CourseModuleSaver) (*Usecase, error) {
 }
 
 func (u *Usecase) Execute(ctx context.Context, input Input) error {
+	// 1. Создаем базовый объект курса, передавая ВСЕ текстовые поля в конструктор
 	course, err := domain.NewCourse(
 		input.Title,
 		input.Description,
@@ -37,9 +24,24 @@ func (u *Usecase) Execute(ctx context.Context, input Input) error {
 		input.Price,
 		input.AuthorID,
 		input.CoverImageURL,
+		input.Contraindications,
+		input.Recommendations,
+		input.TargetAudience,
+		input.CourseBasis,
+		input.ClassBasis,
 	)
 	if err != nil {
 		return err
 	}
+
+	// 2. Защищаем бонусы от nil
+	if input.Bonuses == nil {
+		course.Bonuses = []domain.BonusItem{}
+	} else {
+		course.Bonuses = input.Bonuses
+	}
+
+	// 3. Сохраняем курс вместе с модулями
+	// Логика сохранения модулей находится внутри репозитория (SaveCourseWithModules)
 	return u.courseSaver.SaveCourseWithModules(ctx, course, input.Modules)
 }

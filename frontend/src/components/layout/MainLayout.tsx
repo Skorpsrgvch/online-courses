@@ -12,7 +12,7 @@ const MainLayout: React.FC = () => {
       <Header />
       
       {/* Основной контент растягивается, прижимая футер к низу */}
-      <main className="flex-grow pt-16 bg-gradient-to-br from-rose-50 via-white to-lavender-50 relative z-0"> 
+      <main className="flex-grow pt-16 bg-linear-to-br from-rose-50 via-white to-lavender-50 relative z-0"> 
        
         
         <Outlet />

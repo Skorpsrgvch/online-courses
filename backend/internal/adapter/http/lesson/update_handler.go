@@ -6,18 +6,16 @@ import (
 
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/middleware"
-	"github.com/Skorpsrgvch/online-courses/internal/domain"
 	"github.com/Skorpsrgvch/online-courses/internal/usecase/lesson/update"
 	"github.com/gin-gonic/gin"
 )
 
 type updateLessonRequest struct {
-	Title          string `json:"title" binding:"required"`
-	Description    string `json:"description"`
-	LessonType     string `json:"lesson_type" binding:"omitempty,oneof=video article"`
-	VideoEmbedID   string `json:"video_embed_id"`
-	ArticleContent string `json:"article_content"`
-	Order          int    `json:"order"`
+	Title        string  `json:"title" binding:"required"`
+	Description  string  `json:"description"`
+	VideoEmbedID string  `json:"video_embed_id"`
+	PrivateKey   *string `json:"private_key"`
+	Order        int     `json:"order"`
 }
 
 type UpdateHandler struct {
@@ -47,13 +45,12 @@ func (h *UpdateHandler) Handle(c *gin.Context) {
 	}
 
 	input := update.Input{
-		ID:             lessonID,
-		Title:          req.Title,
-		Description:    req.Description,
-		LessonType:     domain.LessonType(req.LessonType),
-		VideoEmbedID:   req.VideoEmbedID,
-		ArticleContent: req.ArticleContent,
-		Order:          req.Order,
+		ID:           lessonID,
+		Title:        req.Title,
+		Description:  req.Description,
+		VideoEmbedID: req.VideoEmbedID,
+		PrivateKey:   req.PrivateKey,
+		Order:        req.Order,
 	}
 
 	if err := h.usecase.Execute(c.Request.Context(), input); err != nil {

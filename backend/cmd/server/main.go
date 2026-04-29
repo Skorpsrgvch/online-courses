@@ -24,7 +24,6 @@ import (
 	courseCreate "github.com/Skorpsrgvch/online-courses/internal/usecase/course/create"
 	"github.com/Skorpsrgvch/online-courses/internal/usecase/course/createwithmodules"
 	courseDelete "github.com/Skorpsrgvch/online-courses/internal/usecase/course/delete"
-	courseGet "github.com/Skorpsrgvch/online-courses/internal/usecase/course/get"
 	courseGetFull "github.com/Skorpsrgvch/online-courses/internal/usecase/course/getfull"
 	courseList "github.com/Skorpsrgvch/online-courses/internal/usecase/course/list"
 	courseUpdate "github.com/Skorpsrgvch/online-courses/internal/usecase/course/update"
@@ -92,7 +91,6 @@ func main() {
 	// Курсы
 	createCourseUC, _ := courseCreate.NewUsecase(courseRepo)
 	createWithModulesUC, _ := createwithmodules.NewUsecase(courseTxRepo)
-	getCourseUC, _ := courseGet.NewUsecase(courseRepo, purchaseRepo)
 	getFullCourseUC, _ := courseGetFull.NewUsecase(courseRepo, moduleRepo, lessonRepo, purchaseRepo)
 	updateCourseUC, _ := courseUpdate.NewUsecase(courseRepo, courseRepo)
 	deleteCourseUC, _ := courseDelete.NewUsecase(courseRepo)
@@ -134,7 +132,7 @@ func main() {
 	// Курсы
 	createCourseHandler := course.NewCreateHandler(createCourseUC)
 	createWithModulesHandler := course.NewCreateWithModulesHandler(createWithModulesUC)
-	getCourseHandler := course.NewGetHandler(getCourseUC)
+
 	getFullCourseHandler := course.NewGetFullHandler(getFullCourseUC)
 	updateCourseHandler := course.NewUpdateHandler(updateCourseUC)
 	deleteCourseHandler := course.NewDeleteHandler(deleteCourseUC)
@@ -183,56 +181,59 @@ func main() {
 		c.Next()
 	})
 
-	// Публичные эндпоинты
-	r.POST("/api/auth/register", registerHandler.Handle)
-	r.POST("/api/auth/login", loginHandler.Handle)
-	r.POST("/api/auth/forgot-password", forgotPasswordHandler.Handle)
-	r.POST("/api/auth/reset-password", resetPasswordHandler.Handle)
-
-	// Защищённые эндпоинты
-	api := r.Group("/api")
-	api.Use(middleware.AuthMiddleware())
+	// 1. ПОЛНОСТЬЮ ПУБЛИЧНЫЕ ЭНДПОИНТЫ (без /api или просто без Middleware)
+	authGroup := r.Group("/api/auth")
 	{
-		// Auth
-		api.GET("/auth/me", auth.NewMeHandler().Handle)
-		api.POST("/auth/refresh", auth.NewRefreshHandler().Handle)
+		authGroup.POST("/register", registerHandler.Handle)
+		authGroup.POST("/login", loginHandler.Handle)
+		authGroup.POST("/forgot-password", forgotPasswordHandler.Handle)
+		authGroup.POST("/reset-password", resetPasswordHandler.Handle)
+	}
 
-		// Курсы
-		api.GET("/courses", listCourseHandler.Handle)
-		api.POST("/courses", createCourseHandler.Handle)
-		api.POST("/courses/with-modules", createWithModulesHandler.Handle)
-		api.GET("/courses/:id", getCourseHandler.Handle)
-		api.GET("/courses/:id/full", getFullCourseHandler.Handle)
-		api.PUT("/courses/:id", updateCourseHandler.Handle)
-		api.DELETE("/courses/:id", deleteCourseHandler.Handle)
+	// 2. ПУБЛИЧНЫЙ ПРОСМОТР (Контент доступный гостям)
+	publicApi := r.Group("/api")
+	{
+		// Курсы и их детали
+		publicApi.GET("/courses", listCourseHandler.Handle)
+		publicApi.GET("/courses/:id/full", getFullCourseHandler.Handle)
 
-		// Модули
-		api.POST("/modules", createModuleHandler.Handle)
-		api.GET("/courses/:id/modules", getModuleHandler.Handle)
-		api.PUT("/modules/:id", updateModuleHandler.Handle)
-		api.DELETE("/modules/:id", deleteModuleHandler.Handle)
+		// Модули и отзывы
+		publicApi.GET("/courses/:id/modules", getModuleHandler.Handle)
+		publicApi.GET("/courses/:id/reviews", listReviewHandler.Handle)
+	}
 
-		// Уроки
-		api.POST("/lessons", createLessonHandler.Handle)
-		api.GET("/modules/:id/lessons", getLessonHandler.Handle)
-		api.PUT("/lessons/:id", updateLessonHandler.Handle)
-		api.DELETE("/lessons/:id", deleteLessonHandler.Handle)
+	// 3. ЗАЩИЩЁННЫЕ ЭНДПОИНТЫ (Требуют авторизации)
+	protectedApi := r.Group("/api")
+	protectedApi.Use(middleware.AuthMiddleware())
+	{
+		// Личные данные
+		protectedApi.GET("/auth/me", auth.NewMeHandler().Handle)
+		protectedApi.POST("/auth/refresh", auth.NewRefreshHandler().Handle)
+		protectedApi.GET("/user/profile", userProfileHandler.Handle)
+		protectedApi.GET("/user/courses", userCoursesHandler.Handle)
 
-		// Прогресс
-		api.POST("/progress/lessons/:id/mark", markProgressHandler.Handle)
+		// Управление курсами (создание/изменение)
+		protectedApi.POST("/courses", createCourseHandler.Handle)
+		protectedApi.POST("/courses/with-modules", createWithModulesHandler.Handle)
+		protectedApi.PUT("/courses/:id", updateCourseHandler.Handle)
+		protectedApi.DELETE("/courses/:id", deleteCourseHandler.Handle)
 
-		// Отзывы
-		api.POST("/reviews", createReviewHandler.Handle)
-		api.POST("/reviews/:id/approve", approveReviewHandler.Handle)
-		api.GET("/courses/:id/reviews", listReviewHandler.Handle)
+		// Управление модулями и уроками
+		protectedApi.POST("/modules", createModuleHandler.Handle)
+		protectedApi.PUT("/modules/:id", updateModuleHandler.Handle)
+		protectedApi.DELETE("/modules/:id", deleteModuleHandler.Handle)
 
-		// Модерация отзывов (только admin)
-		api.GET("/reviews/admin/pending", pendingReviewHandler.Handle)
-		api.DELETE("/reviews/:id", rejectReviewHandler.Handle)
+		protectedApi.POST("/lessons", createLessonHandler.Handle)
+		protectedApi.GET("/modules/:id/lessons", getLessonHandler.Handle)
+		protectedApi.PUT("/lessons/:id", updateLessonHandler.Handle)
+		protectedApi.DELETE("/lessons/:id", deleteLessonHandler.Handle)
 
-		// Профиль пользователя
-		api.GET("/user/profile", userProfileHandler.Handle)
-		api.GET("/user/courses", userCoursesHandler.Handle)
+		// Прогресс и взаимодействие
+		protectedApi.POST("/progress/lessons/:id/mark", markProgressHandler.Handle)
+		protectedApi.POST("/reviews", createReviewHandler.Handle)
+		protectedApi.POST("/reviews/:id/approve", approveReviewHandler.Handle)
+		protectedApi.GET("/reviews/admin/pending", pendingReviewHandler.Handle)
+		protectedApi.DELETE("/reviews/:id", rejectReviewHandler.Handle)
 	}
 
 	// Запуск сервера

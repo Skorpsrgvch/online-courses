@@ -1,117 +1,67 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { Button } from '../ui/Button';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { coursesService } from '../../api/courses.service';
+import type { Course } from '../../api/types';
 
-const defaultImg = "https://images.unsplash.com/photo-1544367563-12123d8965cd?q=80&w=2070&auto=format&fit=crop";
-const course1Photo = "https://images.unsplash.com/photo-1519823551278-64ac92734fb1?q=80&w=2070&auto=format&fit=crop";
-const course2Photo = "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=2070&auto=format&fit=crop";
+const CourseCatalog: React.FC = () => {
+  const navigate = useNavigate();
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-const coursesData = [
-  {
-    id: 1,
-    title: "Восстановление после родов",
-    image: course1Photo,
-    price: 4900,
-    problems: [
-      "Остался животик, диастаз и сутулость",
-      "Опущение внутренних органов",
-      "Боли в пояснице и тазу",
-      "Недержание при нагрузках"
-    ],
-    link: "/course/1"
-  },
-  {
-    id: 2,
-    title: "Здоровье тазового дна",
-    image: course2Photo,
-    price: 5900,
-    problems: [
-      "Хронические боли в области таза",
-      "Дискомфорт при близости",
-      "Подготовка к родам",
-      "Пролапс (начальные стадии)"
-    ],
-    link: "/course/2"
-  },
-  {
-    id: 3,
-    title: "Женское здоровье и гормоны",
-    image: defaultImg, // Замените на course3Photo при наличии
-    price: 3900,
-    problems: [
-      "Нерегулярный цикл и ПМС",
-      "Гормональный дисбаланс",
-      "Лишний вес и отеки",
-      "Снижение либидо и энергии"
-    ],
-    link: "/course/3"
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        setLoading(true);
+        const data = await coursesService.getAllCourses();
+        // Фильтруем только активные курсы
+        const activeCourses = data.filter(c => c.is_active);
+        setCourses(activeCourses);
+        setError(null);
+      } catch (err) {
+        console.error('Ошибка загрузки курсов:', err);
+        setError('Не удалось загрузить каталог курсов');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCourses();
+  }, []);
+
+  const handleDetailsClick = (id: number) => {
+    navigate(`/course/${id}`);
+  };
+
+  // Берем только первые 3 курса для отображения на главной
+  const displayCourses = courses.slice(0, 3);
+
+  if (loading) {
+    return (
+      <section id="courses" className="py-20 relative z-10 bg-white">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <div className="inline-block w-10 h-10 border-4 border-rose-200 border-t-rose-500 rounded-full animate-spin"></div>
+          <p className="mt-4 text-gray-500">Загрузка программ...</p>
+        </div>
+      </section>
+    );
   }
-];
 
-interface CourseCardProps {
-  title: string;
-  image: string;
-  price: number;
-  problems: string[];
-  link: string;
-}
+  if (error) {
+    return (
+      <section id="courses" className="py-20 relative z-10 bg-white">
+        <div className="max-w-7xl mx-auto px-4 text-center text-red-500 bg-red-50 p-6 rounded-xl">
+          <p>{error}</p>
+          <button onClick={() => window.location.reload()} className="mt-4 text-sm underline hover:text-red-700">
+            Попробовать снова
+          </button>
+        </div>
+      </section>
+    );
+  }
 
-const CourseCard: React.FC<CourseCardProps> = ({ title, image, price, problems, link }) => {
   return (
-    <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 hover:shadow-2xl hover:shadow-rose-100/50 transition-all duration-300 transform hover:-translate-y-1 flex flex-col h-full">
-      {/* Изображение (уменьшена высота) */}
-      <div className="relative h-56 overflow-hidden group">
-        <img 
-          src={image} 
-          alt={title} 
-          className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = defaultImg;
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-        <div className="absolute bottom-3 left-4">
-          <h3 className="text-xl font-serif font-bold text-white leading-tight drop-shadow-md">{title}</h3>
-        </div>
-      </div>
-
-      {/* Контент карточки */}
-      <div className="p-5 flex-grow flex flex-col">
-        <div className="mb-4 flex-grow">
-          <h4 className="text-xs font-bold text-rose-500 uppercase tracking-wider mb-3">
-            Этот курс для вас, если:
-          </h4>
-          <ul className="space-y-2 pl-0 -ml-7 w-full">
-            {problems.map((problem, index) => (
-              <li key={index} className="flex items-start gap-2.5 text-gray-600 text-sm leading-relaxed">
-                <span className="flex-shrink-0 w-1.5 h-1.5 mt-1.5 rounded-full bg-rose-400"></span>
-                <span>{problem}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Блок с ценой и кнопкой */}
-        <div className="mt-auto pt-4 border-t border-gray-100">
-          <div className="flex items-baseline justify-between mb-4">
-            <span className="text-sm text-gray-500 font-medium">Стоимость курса:</span>
-            <span className="text-2xl font-bold text-gray-900">{price} ₽</span>
-          </div>
-          
-          <Link to={link}>
-            <Button className="w-full py-2.5 !rounded-xl text-sm font-semibold shadow-md hover:shadow-lg transition-all">
-              Подробнее о программе
-            </Button>
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export const CourseCatalog: React.FC = () => {
-  return (
-    <section id="courses" className="py-20 relative z-10">
+    <section id="courses" className="py-20 relative z-10 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Заголовок секции */}
@@ -126,16 +76,93 @@ export const CourseCatalog: React.FC = () => {
         </div>
 
         {/* Сетка курсов */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-          {coursesData.map((course) => (
-            <CourseCard 
-              key={course.id}
-              {...course}
-            />
-          ))}
-        </div>
+        {displayCourses.length === 0 ? (
+          <div className="text-center text-gray-500 py-10">Курсы пока не добавлены</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+            {displayCourses.map((course) => (
+              <div
+                key={course.id}
+                className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 hover:shadow-2xl hover:shadow-rose-100/50 transition-all duration-300 transform hover:-translate-y-1 flex flex-col h-full group"
+              >
+                {/* Изображение */}
+                <div className="relative h-56 overflow-hidden bg-gray-100">
+                  {course.cover_image_url ? (
+                    <img 
+                      src={course.cover_image_url} 
+                      alt={course.title} 
+                      className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/images/Course2.jpg";
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-50">
+                      <svg className="w-12 h-12 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                  <div className="absolute bottom-3 left-4">
+                    <h3 className="text-xl font-serif font-bold text-white leading-tight drop-shadow-md line-clamp-2">
+                      {course.title}
+                    </h3>
+                  </div>
+                </div>
 
+                {/* Контент карточки */}
+                <div className="p-5 flex-grow flex flex-col">
+                  <div className="mb-4 flex-grow">
+                    <p className="text-gray-600 text-sm leading-relaxed line-clamp-3 min-h-[3.75rem]">
+                      {course.description || 'Описание курса скоро появится...'}
+                    </p>
+                  </div>
+
+                  {/* Блок с ценой и кнопкой */}
+                  <div className="mt-auto pt-4 border-t border-gray-100">
+                    <div className="flex items-baseline justify-between mb-4">
+                      <span className="text-sm text-gray-500 font-medium">Стоимость:</span>
+                      <span className="text-xl font-bold text-gray-900">
+                        {course.price === 0 ? (
+                          <span className="text-gray-900">Бесплатно</span>
+                        ) : (
+                          `${course.price} ₽`
+                        )}
+                      </span>
+                    </div>
+                    
+                    <button 
+                      onClick={() => handleDetailsClick(course.id)}
+                      className="w-full py-2.5 px-4 bg-rose-500 text-white text-sm font-semibold rounded-2xl! shadow-md hover:bg-rose-600 hover:shadow-lg transition-all duration-300 cursor-pointer"
+                    >
+                      Подробнее о программе
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Кнопка "Все курсы" - показываем, если всего курсов больше 3 */}
+        {courses.length > 3 && (
+          <div className="text-center mt-12">
+            <Link 
+              to="/courses" 
+              className="inline-flex items-center gap-2 px-8 py-3 bg-white border-2 border-rose-300 text-rose-600! font-semibold rounded-2xl hover:border-rose-500! hover:bg-rose-50 hover:-translate-y-1 hover:shadow-lg hover:shadow-rose-100/50 transition-all duration-300 group" 
+              style={{ textDecoration: 'none' }}
+            >
+              Смотреть все программы
+              <svg className="w-5 h-5 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </Link>
+          </div>
+        )}
       </div>
     </section>
   );
 };
+
+export default CourseCatalog;

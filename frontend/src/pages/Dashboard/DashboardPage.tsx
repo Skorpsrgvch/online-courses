@@ -69,10 +69,11 @@ const DashboardPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Шапка */}
+      
       <div className="bg-white border-b border-gray-200 py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <a href="/" className="text-sm text-gray-500 hover:text-rose-500 transition-colors mb-2 inline-block">
+          <a href="/" className="text-sm text-gray-500! hover:text-rose-500! transition-colors mb-2 inline-block"
+          style={{ textDecoration: 'none' }}>
             ← На главную
           </a>
           <h1 className="text-2xl md:text-3xl font-serif font-bold text-gray-900">Личный кабинет</h1>
@@ -85,7 +86,8 @@ const DashboardPage = () => {
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-gradient-to-br from-rose-400 to-rose-600 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                <div className="w-14 h-14 bg-linear-to-br from-rose-400 to-rose-600 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg"
+                style={{ textDecoration: 'none' }}>
                   {profile.name?.charAt(0).toUpperCase() || profile.email.charAt(0).toUpperCase()}
                 </div>
                 <div>

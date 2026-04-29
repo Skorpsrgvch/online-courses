@@ -6,8 +6,7 @@ export interface ReviewsListResponse {
 }
 
 export const reviewsService = {
-  // ВНИМАНИЕ: Эндпоинт GET /reviews отсутствует на бэкенде.
-  // Заглушка — вернуть пустой массив до реализации бэкенда.
+  
   getApprovedReviews: async (): Promise<Review[]> => {
     // TODO: реализовать GET /reviews?approved=true на бэкенде
     return [];

@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
-	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/middleware"
 	"github.com/Skorpsrgvch/online-courses/internal/usecase/course/getfull"
 	"github.com/gin-gonic/gin"
 )
@@ -19,14 +18,25 @@ func NewGetFullHandler(usecase *getfull.Usecase) *GetFullHandler {
 }
 
 func (h *GetFullHandler) Handle(c *gin.Context) {
-	courseID, _ := strconv.Atoi(c.Param("id"))
+	idStr := c.Param("id")
+	courseID, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный ID курса"})
+		return
+	}
 
 	userID := 0
 	role := ""
-	if uid := middleware.GetUserID(c); uid != 0 {
-		userID = uid
-		if r, ok := c.Get("role"); ok {
-			role = r.(string)
+
+	if uid, exists := c.Get("user_id"); exists && uid != nil {
+		if idVal, ok := uid.(int); ok {
+			userID = idVal
+		}
+	}
+
+	if r, exists := c.Get("role"); exists && r != nil {
+		if roleVal, ok := r.(string); ok {
+			role = roleVal
 		}
 	}
 

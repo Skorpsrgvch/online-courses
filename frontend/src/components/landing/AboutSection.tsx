@@ -1,6 +1,6 @@
 import React from 'react';
 
-const specialistPhoto = 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=2070&auto=format&fit=crop';
+
 
 export const AboutSection: React.FC = () => {
   return (
@@ -60,7 +60,7 @@ export const AboutSection: React.FC = () => {
             <div className="flex justify-center ">
               <a 
                 href="#courses" 
-                className="inline-flex items-center gap-3 px-8 py-4 bg-white border-2 border-rose-100 !text-rose-600 font-semibold rounded-2xl hover:!border-rose-500 hover:bg-rose-50 hover:-translate-y-1 hover:shadow-lg hover:shadow-rose-100/50 transition-all duration-300 group no-underline"
+                className="inline-flex items-center gap-2 px-8 py-3 bg-white border-2 border-rose-300 text-rose-600! font-semibold rounded-2xl hover:border-rose-500! hover:bg-rose-50 hover:-translate-y-1 hover:shadow-lg hover:shadow-rose-100/50 transition-all duration-300 group"
                 style={{ textDecoration: 'none' }}
               >
                 Посмотреть программы обучения
@@ -74,17 +74,17 @@ export const AboutSection: React.FC = () => {
           {/* Блок с фото */}
           {/* Добавлен mt-0 для десктопа, чтобы фото начиналось строго с верха сетки */}
           <div className="relative order-2 lg:order-1 group mt-8 lg:mt-0">
-            <div className="relative aspect-[4/5] max-w-md mx-auto lg:max-w-full overflow-hidden rounded-[2rem] shadow-2xl shadow-rose-200/50">
+            <div className="relative aspect-4/5 max-w-md mx-auto lg:max-w-full overflow-hidden rounded-4xl! shadow-2xl shadow-rose-200/50">
               <img 
-                src={specialistPhoto} 
+                src="/images/AboutSection.jpg" 
                 alt="Ольга Пимченко" 
                 className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out"
               />
               {/* Декоративная рамка */}
-              <div className="absolute inset-0 border-2 border-white/30 rounded-[2rem] pointer-events-none"></div>
+              <div className="absolute inset-0 border-2 border-white/30 rounded-4xl! pointer-events-none"></div>
               
               {/* Легкий градиент снизу для объема */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none"></div>
+              <div className="absolute inset-0 bg-linear-to-t from-black/10 to-transparent pointer-events-none"></div>
             </div>
           </div>
 

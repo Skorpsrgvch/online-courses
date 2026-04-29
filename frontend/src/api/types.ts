@@ -6,6 +6,13 @@ export interface User {
   created_at?: string;
 }
 
+
+export interface BonusItem {
+  title: string;
+  description: string;
+  icon: string; 
+}
+
 export interface CourseModule {
   id: number;
   course_id: number;
@@ -19,9 +26,8 @@ export interface Lesson {
   title: string;
   description: string;
   video_embed_id: string;
+  private_key?: string | null;
   order: number;
-  lesson_type?: 'video' | 'article';
-  article_content?: string;
 }
 
 export interface Course {
@@ -33,6 +39,17 @@ export interface Course {
   author_id: number;
   is_active: boolean;
   cover_image_url?: string;
+  
+  // Старые поля
+  contraindications?: string; 
+  recommendations?: string;     
+  bonuses?: BonusItem[];     
+  
+  // НОВЫЕ ПОЛЯ
+  target_audience?: string;   // "Курс для вас, если"
+  course_basis?: string;      // "Курс включает в себя"
+  class_basis?: string;       // "Основа занятий"
+
   modules?: LessonGroup[];
   is_purchased?: boolean;
   progress?: number;
@@ -96,6 +113,16 @@ export interface CreateCourseDto {
   is_public: boolean;
   price: number;
   cover_image_url?: string;
+  
+  // Старые поля
+  contraindications?: string;
+  recommendations?: string;
+  bonuses?: BonusItem[];
+
+  // НОВЫЕ ПОЛЯ
+  target_audience?: string;
+  course_basis?: string;
+  class_basis?: string;
 }
 
 export interface CreateModuleDto {
@@ -108,9 +135,18 @@ export interface CreateLessonDto {
   module_id: number;
   title: string;
   description: string;
-  lesson_type: 'video' | 'article';
   video_embed_id?: string;
-  article_content?: string;
+  private_key?: string | null;
+  order: number;
+}
+
+export interface FullCourseLesson {
+  id: number;
+  module_id: number;
+  title: string;
+  description: string;
+  video_embed_id: string;
+  private_key?: string | null;
   order: number;
 }
 
@@ -120,17 +156,6 @@ export interface FullCourseModule {
   title: string;
   order: number;
   lessons: FullCourseLesson[];
-}
-
-export interface FullCourseLesson {
-  id: number;
-  module_id: number;
-  title: string;
-  description: string;
-  lesson_type: 'video' | 'article';
-  video_embed_id: string;
-  article_content: string;
-  order: number;
 }
 
 export interface CourseFullResponse {

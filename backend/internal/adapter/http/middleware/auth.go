@@ -128,8 +128,18 @@ func RequireAdmin(c *gin.Context) bool {
 	return exists && role == "admin"
 }
 
-// GetUserID извлекает ID пользователя из контекста
+// GetUserID извлекает ID пользователя из контекста.
+// Возвращает 0, если пользователь не авторизован или ключ отсутствует.
 func GetUserID(c *gin.Context) int {
-	id, _ := c.Get(UserIDKey)
-	return id.(int)
+	val, exists := c.Get(UserIDKey)
+	if !exists {
+		return 0
+	}
+
+	userID, ok := val.(int)
+	if !ok {
+		return 0
+	}
+
+	return userID
 }

@@ -10,12 +10,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// createCourseRequest описывает входящий JSON
 type createCourseRequest struct {
-	Title         string `json:"title" binding:"required"`
-	Description   string `json:"description"`
-	IsPublic      bool   `json:"is_public"`
-	Price         int    `json:"price"`
-	CoverImageURL string `json:"cover_image_url"`
+	Title             string             `json:"title" binding:"required"`
+	Description       string             `json:"description"`
+	IsPublic          bool               `json:"is_public"`
+	Price             int                `json:"price"`
+	CoverImageURL     string             `json:"cover_image_url"`
+	Contraindications string             `json:"contraindications"`
+	Recommendations   string             `json:"recommendations"`
+	TargetAudience    string             `json:"target_audience"`
+	CourseBasis       string             `json:"course_basis"`
+	ClassBasis        string             `json:"class_basis"`
+	Bonuses           []domain.BonusItem `json:"bonuses"`
 }
 
 type CreateHandler struct {
@@ -33,20 +40,26 @@ func (h *CreateHandler) Handle(c *gin.Context) {
 		return
 	}
 
-	// ← Используем функции из middleware
-	userID := middleware.GetUserID(c)
 	if !middleware.RequireAdmin(c) {
 		common.HandleError(c, domain.ErrAccessDenied)
 		return
 	}
 
+	userID := middleware.GetUserID(c)
+
 	input := create.Input{
-		Title:         req.Title,
-		Description:   req.Description,
-		IsPublic:      req.IsPublic,
-		Price:         req.Price,
-		AuthorID:      userID,
-		CoverImageURL: req.CoverImageURL,
+		Title:             req.Title,
+		Description:       req.Description,
+		IsPublic:          req.IsPublic,
+		Price:             req.Price,
+		AuthorID:          userID,
+		CoverImageURL:     req.CoverImageURL,
+		Contraindications: req.Contraindications,
+		Recommendations:   req.Recommendations,
+		TargetAudience:    req.TargetAudience,
+		CourseBasis:       req.CourseBasis,
+		ClassBasis:        req.ClassBasis,
+		Bonuses:           req.Bonuses,
 	}
 
 	if err := h.usecase.Execute(c.Request.Context(), input); err != nil {

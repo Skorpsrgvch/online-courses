@@ -1,12 +1,5 @@
-/**
- * Обёртка над DOMPurify для санитизации HTML-контента статей.
- */
 import DOMPurify from 'dompurify';
 
-/**
- * Санитизирует HTML-контент, оставляя только безопасные теги.
- * Используется для рендеринга статей.
- */
 export function sanitizeArticleHtml(html: string): string {
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [

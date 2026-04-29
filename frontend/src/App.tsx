@@ -2,7 +2,7 @@ import { createBrowserRouter, RouterProvider, useNavigate } from 'react-router-d
 import { useEffect } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
-import MainLayout from './components/layout/MainLayout'; 
+import MainLayout from './components/layout/MainLayout';
 
 
 import HomePage from './pages/Home/HomePage';
@@ -11,17 +11,20 @@ import RegisterPage from './pages/Auth/RegisterPage';
 import PasswordRecoveryPage from './pages/Auth/PasswordRecoveryPage';
 import DashboardPage from './pages/Dashboard/DashboardPage';
 import CoursePage from './pages/Course/CoursePage';
+import LearnPage from './pages/Course/LearnPage';
+import AllCoursesPage from './pages/Course/AllCoursesPage';
 import AdminPage from './pages/Admin/AdminPage';
+
 
 
 // Компонент для перенаправления на главную (должен быть объявлен ДО использования)
 const NavigateToHome = () => {
   const navigate = useNavigate();
-  
+
   useEffect(() => {
     navigate('/', { replace: true });
   }, [navigate]);
-  
+
   return null;
 };
 
@@ -34,6 +37,7 @@ const router = createBrowserRouter([
       { path: 'login', element: <LoginPage /> },
       { path: 'register', element: <RegisterPage /> },
       { path: 'password-recovery', element: <PasswordRecoveryPage /> },
+      { path: 'courses', element: <AllCoursesPage /> },
       {
         path: 'dashboard',
         element: (
@@ -45,10 +49,14 @@ const router = createBrowserRouter([
       {
         path: 'course/:id',
         element: (
-          <ProtectedRoute>
             <CoursePage />
-          </ProtectedRoute>
         ),
+      },
+      {
+        path: 'course/:id/learn',
+        element: <ProtectedRoute>
+          <LearnPage />
+          </ProtectedRoute>,
       },
       {
         path: 'admin',

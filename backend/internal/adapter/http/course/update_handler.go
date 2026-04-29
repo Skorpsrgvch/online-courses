@@ -12,12 +12,18 @@ import (
 )
 
 type updateCourseRequest struct {
-	Title         string `json:"title" binding:"required"`
-	Description   string `json:"description"`
-	IsPublic      bool   `json:"is_public"`
-	Price         int    `json:"price"`
-	IsActive      bool   `json:"is_active"`
-	CoverImageURL string `json:"cover_image_url"`
+	Title             string             `json:"title" binding:"required"`
+	Description       string             `json:"description"`
+	IsPublic          bool               `json:"is_public"`
+	Price             int                `json:"price"`
+	IsActive          bool               `json:"is_active"`
+	CoverImageURL     string             `json:"cover_image_url"`
+	Contraindications string             `json:"contraindications"`
+	Recommendations   string             `json:"recommendations"`
+	TargetAudience    string             `json:"target_audience"`
+	CourseBasis       string             `json:"course_basis"`
+	ClassBasis        string             `json:"class_basis"`
+	Bonuses           []domain.BonusItem `json:"bonuses"`
 }
 
 type UpdateHandler struct {
@@ -48,14 +54,20 @@ func (h *UpdateHandler) Handle(c *gin.Context) {
 
 	userID := middleware.GetUserID(c)
 	input := update.Input{
-		ID:            courseID,
-		Title:         req.Title,
-		Description:   req.Description,
-		IsPublic:      req.IsPublic,
-		Price:         req.Price,
-		IsActive:      req.IsActive,
-		AuthorID:      userID,
-		CoverImageURL: req.CoverImageURL,
+		ID:                courseID,
+		Title:             req.Title,
+		Description:       req.Description,
+		IsPublic:          req.IsPublic,
+		Price:             req.Price,
+		IsActive:          req.IsActive,
+		AuthorID:          userID,
+		CoverImageURL:     req.CoverImageURL,
+		Contraindications: req.Contraindications,
+		Recommendations:   req.Recommendations,
+		TargetAudience:    req.TargetAudience,
+		CourseBasis:       req.CourseBasis,
+		ClassBasis:        req.ClassBasis,
+		Bonuses:           req.Bonuses,
 	}
 
 	if err := h.usecase.Execute(c.Request.Context(), input); err != nil {

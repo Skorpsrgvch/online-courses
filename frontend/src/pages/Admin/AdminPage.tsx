@@ -155,7 +155,9 @@ const AdminPage = () => {
       {/* Шапка */}
       <div className="bg-white border-b border-gray-200 py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <a href="/" className="text-sm text-gray-500 hover:text-rose-500 transition-colors mb-2 inline-block">
+          <a href="/" className="text-sm text-gray-500! hover:text-rose-500 transition-colors mb-2 inline-block"
+          style={{ textDecoration: 'none' }} 
+          >
             ← На главную
           </a>
           <h1 className="text-2xl md:text-3xl font-serif font-bold text-gray-900">Админ-панель</h1>

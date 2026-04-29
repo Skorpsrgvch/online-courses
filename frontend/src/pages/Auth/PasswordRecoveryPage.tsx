@@ -67,7 +67,8 @@ const PasswordRecoveryPage = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="max-w-md w-full">
-        <Link to="/login" className="text-sm text-gray-500 hover:text-rose-500 transition-colors mb-4 inline-block">
+        <Link to="/login" className="text-sm text-gray-500! hover:text-rose-500! transition-colors mb-4 inline-block"
+        style={{ textDecoration: 'none' }}>
           ← Назад ко входу
         </Link>
 
@@ -96,8 +97,8 @@ const PasswordRecoveryPage = () => {
 
           {/* Шаг 1: Ввод email */}
           {step === 'email' && (
-            <form onSubmit={handleSendReset} className="space-y-4">
-              <p className="text-sm text-gray-600 text-center mb-4">
+            <form onSubmit={handleSendReset} className="space-y-4 mb-3">
+              <p className="text-sm text-gray-600 text-center">
                 Введите email, привязанный к вашему аккаунту.
               </p>
               <div>
@@ -123,7 +124,7 @@ const PasswordRecoveryPage = () => {
 
           {/* Шаг 2: Ввод токена и нового пароля */}
           {step === 'token' && (
-            <form onSubmit={handleResetPassword} className="space-y-4 mt-4">
+            <form onSubmit={handleResetPassword} className="space-y-4 mt-4 mb-1">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Токен из письма
@@ -163,7 +164,7 @@ const PasswordRecoveryPage = () => {
               <button
                 type="submit"
                 disabled={isLoading || !token || !newPassword || !confirmPassword}
-                className="w-full py-2.5 px-4 bg-rose-500 text-white rounded-lg hover:bg-rose-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                className="w-full py-2.5 px-4 mb-6 bg-rose-500 text-white rounded-lg hover:bg-rose-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
               >
                 {isLoading ? 'Сброс...' : 'Сбросить пароль'}
               </button>
@@ -172,7 +173,8 @@ const PasswordRecoveryPage = () => {
 
           <p className="text-center text-sm text-gray-500 mt-6">
             Вспомнили пароль?{' '}
-            <Link to="/login" className="text-rose-500 hover:underline font-medium">
+            <Link to="/login" className="text-rose-500! hover:underline! font-medium" 
+            style={{ textDecoration: 'none' }}>
               Войти
             </Link>
           </p>

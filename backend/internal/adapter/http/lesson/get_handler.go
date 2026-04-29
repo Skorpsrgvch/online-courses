@@ -14,12 +14,13 @@ type getLessonsResponse struct {
 }
 
 type lessonDTO struct {
-	ID           int    `json:"id"`
-	ModuleID     int    `json:"module_id"`
-	Title        string `json:"title"`
-	Description  string `json:"description"`
-	VideoEmbedID string `json:"video_embed_id"`
-	Order        int    `json:"order"`
+	ID           int     `json:"id"`
+	ModuleID     int     `json:"module_id"`
+	Title        string  `json:"title"`
+	Description  string  `json:"description"`
+	VideoEmbedID string  `json:"video_embed_id"`
+	PrivateKey   *string `json:"private_key"`
+	Order        int     `json:"order"`
 }
 
 type GetHandler struct {
@@ -52,6 +53,7 @@ func (h *GetHandler) Handle(c *gin.Context) {
 			Title:        l.Title,
 			Description:  l.Description,
 			VideoEmbedID: l.VideoEmbedID,
+			PrivateKey:   l.PrivateKey,
 			Order:        l.Order,
 		})
 	}

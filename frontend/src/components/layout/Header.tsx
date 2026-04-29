@@ -4,14 +4,17 @@ import { useAuth } from '../../context/AuthContext';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
+import { useIsMobile } from '../../hooks/useIsMobile'; 
 
 export const Header: React.FC = () => {
   const { user, isAuthenticated, logout, login, register } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile(); 
+  
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  // Состояния для модальных окон
+  // Состояния для модальных окон (используем только на десктопе)
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
 
@@ -29,18 +32,20 @@ export const Header: React.FC = () => {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/');
+    window.location.href = '/'; 
     setIsMobileMenuOpen(false);
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation(); // Добавляем, чтобы событие не уходило выше
     setIsLoading(true);
     setError(null);
     try {
       await login(loginForm.email, loginForm.password);
       setIsLoginOpen(false);
       setLoginForm({ email: '', password: '' });
+      if (isMobile) navigate('/dashboard'); 
     } catch (err: any) {
       setError(err.message || 'Ошибка входа');
     } finally {
@@ -50,6 +55,7 @@ export const Header: React.FC = () => {
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     if (!registerForm.agree) {
       setError('Необходимо согласие на обработку данных');
       return;
@@ -60,6 +66,7 @@ export const Header: React.FC = () => {
       await register(registerForm.name, registerForm.email, registerForm.password);
       setIsRegisterOpen(false);
       setRegisterForm({ name: '', email: '', password: '', agree: false });
+      if (isMobile) navigate('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Ошибка регистрации');
     } finally {
@@ -67,9 +74,36 @@ export const Header: React.FC = () => {
     }
   };
 
+
+  const openLogin = () => {
+    if (isMobile) {
+      // Если мы НЕ на странице логина, тогда переходим
+      if (window.location.pathname !== '/login') {
+        navigate('/login');
+      }
+    } else {
+      setIsLoginOpen(true); 
+    }
+    setIsMobileMenuOpen(false);
+  };
+
+  const openRegister = () => {
+    if (isMobile) {
+      // Если мы НЕ на странице регистрации, тогда переходим
+      if (window.location.pathname !== '/register') {
+        navigate('/register');
+      }
+    } else {
+      setIsRegisterOpen(true); 
+    }
+    setIsMobileMenuOpen(false);
+  };
+
+  
   const navLinks = [
     { name: 'О специалисте', href: '/#about' },
-    { name: 'Курсы', href: '/#courses' },
+    { name: 'Услуги', href: '/#services' },
+    { name: 'Курсы', href: '/courses' },
     { name: 'Статьи', href: '/#articles' },
     { name: 'Видео', href: '/#videos' },
     { name: 'Контакты', href: '/#footer' },
@@ -91,7 +125,7 @@ export const Header: React.FC = () => {
             style={{ textDecoration: 'none' }}
           >
             <div 
-              className="w-10 h-10 bg-gradient-to-br from-rose-400 to-rose-600 rounded-full flex items-center justify-center text-white font-serif font-bold text-xl shadow-lg transition-all duration-300"
+              className="w-10 h-10 bg-linear-to-br from-rose-400 to-rose-600 rounded-full flex items-center justify-center text-white font-serif font-bold text-xl shadow-lg transition-all duration-300"
             >
               W
             </div>
@@ -106,54 +140,59 @@ export const Header: React.FC = () => {
               <a
                 key={link.name}
                 href={link.href}
-                className="relative !text-gray-600 hover:!text-rose-500 font-medium text-lg transition-colors duration-300 decoration-transparent group"
+                className="relative text-gray-600! hover:text-rose-500! font-medium text-lg transition-colors duration-300 decoration-transparent group"
                 style={{ textDecoration: 'none' }} 
               >
                 {link.name}
-                {/* Красная линия при наведении */}
                 <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-rose-500 transition-all duration-300 group-hover:w-full"></span>
               </a>
             ))}
           </nav>
 
           {/* Кнопки авторизации (Desktop) */}
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2 lg:gap-4">
             {isAuthenticated ? (
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 lg:gap-3">
                 <Link
                   to="/dashboard"
-                  className="flex items-center gap-2 text-gray-700 hover:text-rose-600 font-medium transition-colors"
+                  className="flex items-center gap-2 text-gray-700! hover:text-rose-600! font-medium transition-colors"
+                  style={{ textDecoration: 'none' }}
                 >
-                  <div className="w-9 h-9 bg-rose-100 rounded-full flex items-center justify-center text-rose-600 font-bold border-2 border-white shadow-sm">
+                  <div className="w-8 h-8 lg:w-9 lg:h-9 bg-rose-100 rounded-full flex items-center justify-center text-rose-600! font-bold border-2 border-white shadow-sm">
                     {user?.name?.charAt(0).toUpperCase() || 'U'}
                   </div>
-                  <span className="text-sm">{user?.name || 'Кабинет'}</span>
+                  <span className="text-sm" style={{ textDecoration: 'none' }}>{user?.name || 'Кабинет'}</span>
                 </Link>
                 {user?.role === 'admin' && (
-                  <Link to="/admin" className="px-3 py-1.5 bg-gray-800 text-white text-xs rounded-full hover:bg-gray-700 transition-colors">
+                  <Link to="/admin" className="px-2 py-1 lg:px-3 lg:py-1.5 bg-gray-800 text-white text-[10px] lg:text-xs rounded-full hover:bg-gray-700 transition-colors whitespace-nowrap" 
+                  style={{ textDecoration: 'none' }} >
                     Админ-панель
                   </Link>
                 )}
                 <button
-                  onClick={handleLogout}
-                  className="px-5 py-2 text-sm font-medium text-gray-600 border border-gray-300 rounded-full hover:border-rose-500 hover:text-rose-500 transition-all duration-300 bg-white/50 hover:bg-white"
-                >
-                  Выйти
-                </button>
+        onClick={handleLogout}
+        className="p-2 text-gray-600 border border-gray-300 rounded-full hover:border-rose-500 hover:text-rose-500 transition-all duration-300 bg-white/50 hover:bg-white"
+        title="Выйти"
+      >
+        <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+        </svg>
+      </button>
               </div>
             ) : (
               <>
+                {/* 4. Используем новые обработчики */}
                 <button 
-                  onClick={() => setIsLoginOpen(true)}
-                  className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 !rounded-2xl hover:border-rose-300 hover:text-rose-500 hover:shadow-md transition-all duration-300 transform">
+                  onClick={openLogin}
+                  className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-2xl! hover:border-rose-300 hover:text-rose-500 hover:shadow-md transition-all duration-300 transform">
                     Вход
-                  </button>
+                </button>
               
                 <button 
-                  onClick={() => setIsRegisterOpen(true)}
-                  className="px-6 py-2.5 text-sm font-medium text-white bg-rose-500 !rounded-2xl hover:bg-rose-600 hover:shadow-lg transition-all duration-300 transform">
+                  onClick={openRegister}
+                  className="px-6 py-2.5 text-sm font-medium text-white bg-rose-500 rounded-2xl! hover:bg-rose-600 hover:shadow-lg transition-all duration-300 transform">
                     Регистрация
-                  </button>
+                </button>
               </>
             )}
           </div>
@@ -174,7 +213,7 @@ export const Header: React.FC = () => {
         </div>
       </div>
 
-      {/* Мобильное меню (выпадает поверх всего) */}
+      {/* Мобильное меню */}
       {isMobileMenuOpen && (
         <div className="md:hidden absolute top-full left-0 w-full bg-white/95 backdrop-blur-xl border-b border-gray-100 shadow-xl animate-fade-in-down">
           <div className="px-4 pt-4 pb-8 space-y-2">
@@ -183,7 +222,7 @@ export const Header: React.FC = () => {
                 key={link.name}
                 href={link.href}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="block px-4 py-3 text-lg font-medium !text-gray-700 hover:!text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                className="block px-4 py-3 text-lg font-medium text-gray-700! hover:text-rose-600! hover:bg-rose-50 rounded-xl transition-colors"
                 style={{ textDecoration: 'none' }}
               >
                 {link.name}
@@ -218,14 +257,14 @@ export const Header: React.FC = () => {
               ) : (
                 <div className="grid grid-cols-2 gap-3">
                   <button
-                    onClick={() => { setIsLoginOpen(true); setIsMobileMenuOpen(false); }}
-                    className="text-center px-4 py-3 border border-gray-200 !text-gray-700 rounded-2xl font-medium hover:border-rose-300 hover:text-rose-500 transition-all bg-white"
+                    onClick={openLogin}
+                    className="text-center px-4 py-3 border border-gray-200 text-gray-700! rounded-2xl! font-medium hover:border-rose-300 hover:text-rose-500 transition-all bg-white"
                   >
                     Вход
                   </button>
                   <button
-                    onClick={() => { setIsRegisterOpen(true); setIsMobileMenuOpen(false); }}
-                    className="text-center px-4 py-3 bg-rose-500 text-white rounded-2xl font-medium shadow-lg shadow-rose-200 hover:bg-rose-600 transition-all"
+                    onClick={openRegister}
+                    className="text-center px-4 py-3 bg-rose-500 text-white rounded-2xl! font-medium shadow-lg shadow-rose-200 hover:bg-rose-600 transition-all"
                   >
                     Регистрация
                   </button>
@@ -236,51 +275,58 @@ export const Header: React.FC = () => {
         </div>
       )}
 
-      {/* Модальное окно Входа */}
-      <Modal isOpen={isLoginOpen} onClose={() => { setIsLoginOpen(false); setError(null); }} title="Вход в аккаунт">
-        <form onSubmit={handleLoginSubmit} className="space-y-4 mt-2">
-          {error && (
-            <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
-              {error}
-            </div>
-          )}
-          <Input
-            label="Email"
-            type="email"
-            value={loginForm.email}
-            onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-            required
-            placeholder="example@mail.ru"
-          />
-          <Input
-            label="Пароль"
-            type="password"
-            value={loginForm.password}
-            onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-            required
-            placeholder="••••••••"
-          />
-          <div className="flex justify-center pt-2">
-            <Button type="submit" isLoading={isLoading} className="w-full !rounded-2xl sm:w-auto">
-              Войти
-            </Button>
-          </div>
-          <p className="text-xs text-center text-gray-500 mt-4">
-            Нет аккаунта?{' '}
-            <button type="button" onClick={() => { setIsLoginOpen(false); setIsRegisterOpen(true); }} className="text-rose-500 hover:underline font-medium">
-              Зарегистрироваться
-            </button>
-          </p>
-          <p className="text-xs text-center text-gray-400 mt-2">
-            <Link to="/password-recovery" onClick={() => setIsLoginOpen(false)} className="text-rose-400 hover:text-rose-500 hover:underline">
-              Забыли пароль?
-            </Link>
-          </p>
-        </form>
-      </Modal>
+      {!isMobile && (
+        <>
+          <Modal isOpen={isLoginOpen} onClose={() => { setIsLoginOpen(false); setError(null); }} title="Вход в аккаунт">
+            <form onSubmit={handleLoginSubmit} className="space-y-4 mt-2">
+              {error && (
+                <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+                  {error}
+                </div>
+              )}
+              <Input
+                label="Email"
+                type="email"
+                value={loginForm.email}
+                onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                required
+                placeholder="example@mail.ru"
+              />
+              <Input
+                label="Пароль"
+                type="password"
+                value={loginForm.password}
+                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                required
+                placeholder="••••••••"
+              />
+              <div className="flex justify-center pt-2">
+                {/* Убедитесь, что Button прокидывает type="submit" на нативный <button> */}
+                <Button type="submit" isLoading={isLoading} className="w-full rounded-2xl! sm:w-auto">
+                  Войти
+                </Button>
+              </div>
+              <p className="text-xs text-center text-gray-500 mt-4">
+                Нет аккаунта?{' '}
+                {/* КРИТИЧНО: Добавлен type="button" */}
+                <button 
+                  type="button" 
+                  onClick={(e) => { e.preventDefault(); setIsLoginOpen(false); setIsRegisterOpen(true); }} 
+                  className="text-rose-500 hover:underline font-medium"
+                >
+                  Зарегистрироваться
+                </button>
+              </p>
+              <p className="text-xs text-center text-gray-400 mt-2">
+                <Link to="/password-recovery" onClick={() => setIsLoginOpen(false)} className="text-rose-400! hover:text-rose-500! hover:underline"
+                style={{ textDecoration: 'none' }}>
+                  Забыли пароль?
+                </Link>
+              </p>
+            </form>
+          </Modal>
 
-      {/* Модальное окно Регистрации */}
-      <Modal isOpen={isRegisterOpen} onClose={() => { setIsRegisterOpen(false); setError(null); }} title="Регистрация">
+          <Modal isOpen={isRegisterOpen} onClose={() => { setIsRegisterOpen(false); setError(null); }} title="Регистрация">
         <form onSubmit={handleRegisterSubmit} className="space-y-4 mt-2">
           {error && (
             <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
@@ -327,7 +373,7 @@ export const Header: React.FC = () => {
           </div>
 
           <div className="flex justify-center pt-2">
-            <Button type="submit" isLoading={isLoading}  className="w-full !rounded-2xl sm:w-auto">
+            <Button type="submit" isLoading={isLoading}  className="w-full rounded-2xl! sm:w-auto">
               Создать аккаунт
             </Button>
           </div>
@@ -339,6 +385,8 @@ export const Header: React.FC = () => {
           </p>
         </form>
       </Modal>
+        </>
+      )}
     </header>
   );
 };

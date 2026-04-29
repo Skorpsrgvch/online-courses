@@ -22,7 +22,7 @@ const RegisterPage = () => {
               Согласен на обработку персональных данных
             </label>
           </div>
-          <button type="submit" className="w-full py-2 px-4 bg-rose-500 text-white rounded-md hover:bg-rose-600">
+          <button type="submit" className="w-full py-2 px-4 bg-rose-500 text-white rounded-2xl! hover:bg-rose-600">
             Зарегистрироваться
           </button>
         </form>

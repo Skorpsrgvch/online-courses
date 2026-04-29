@@ -1,15 +1,14 @@
-// internal/adapter/postgres/course_tx.go
 package postgres
 
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
 	courseCreate "github.com/Skorpsrgvch/online-courses/internal/usecase/course/create"
 )
 
-// CourseTxRepo — репозиторий курсов с поддержкой транзакций
 type CourseTxRepo struct {
 	db *sql.DB
 }
@@ -18,7 +17,6 @@ func NewCourseTxRepo(db *sql.DB) *CourseTxRepo {
 	return &CourseTxRepo{db: db}
 }
 
-// SaveCourseWithModules создаёт курс, модули и уроки в одной транзакции
 func (r *CourseTxRepo) SaveCourseWithModules(ctx context.Context, course *domain.Course, modules []courseCreate.ModuleInput) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -26,10 +24,16 @@ func (r *CourseTxRepo) SaveCourseWithModules(ctx context.Context, course *domain
 	}
 	defer tx.Rollback()
 
-	// 1. Создаём курс
+	// Сериализуем бонусы в JSON
+	bonusesJSON, err := json.Marshal(course.Bonuses)
+	if err != nil {
+		return err
+	}
+
+	// 1. Создаём курс с новыми полями
 	courseQuery := `
-		INSERT INTO courses (title, description, is_public, price, author_id, is_active, cover_image_url)
-		VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''))
+		INSERT INTO courses (title, description, is_public, price, author_id, is_active, cover_image_url, contraindications, recommendations, target_audience, course_basis, class_basis, bonuses)
+		VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''), $8, $9, $10, $11, $12, $13)
 		RETURNING id
 	`
 	err = tx.QueryRowContext(ctx, courseQuery,
@@ -40,6 +44,12 @@ func (r *CourseTxRepo) SaveCourseWithModules(ctx context.Context, course *domain
 		course.AuthorID,
 		course.IsActive,
 		course.CoverImageURL,
+		course.Contraindications,
+		course.Recommendations,
+		course.TargetAudience,
+		course.CourseBasis,
+		course.ClassBasis,
+		bonusesJSON,
 	).Scan(&course.ID)
 	if err != nil {
 		return err
@@ -60,17 +70,23 @@ func (r *CourseTxRepo) SaveCourseWithModules(ctx context.Context, course *domain
 
 		// 3. Создаём уроки для каждого модуля
 		for _, lesson := range mod.Lessons {
-			lessonQuery := `
-				INSERT INTO lessons (module_id, title, description, lesson_type, video_embed_id, article_content, "order")
-				VALUES ($1, $2, $3, $4, NULLIF($5, ''), NULLIF($6, ''), $7)
-			`
+			lessonQuery := `INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order")
+							VALUES ($1, $2, $3, $4, $5, $6)`
+
+			// Подготовка значения: если ключа нет, передаем nil
+			var pkVal interface{}
+			if lesson.PrivateKey != nil {
+				pkVal = *lesson.PrivateKey
+			} else {
+				pkVal = nil
+			}
+
 			_, err = tx.ExecContext(ctx, lessonQuery,
 				moduleID,
 				lesson.Title,
 				lesson.Description,
-				string(lesson.LessonType),
 				lesson.VideoEmbedID,
-				lesson.ArticleContent,
+				pkVal,
 				lesson.Order,
 			)
 			if err != nil {

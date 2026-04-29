@@ -2,16 +2,14 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../ui/Button';
 
-// Заглушки изображений (замените на реальные пути к вашим статьям)
-const article1Img = "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=2070&auto=format&fit=crop";
-const article2Img = "https://images.unsplash.com/photo-1493863641943-9b68992a8d07?q=80&w=2058&auto=format&fit=crop";
-const article3Img = "https://images.unsplash.com/photo-1505751172876-fa1923c5c528?q=80&w=2070&auto=format&fit=crop";
+
+
 
 const articlesData = [
   {
     id: 1,
     title: "10 советов как уменьшить боль в тазу",
-    image: article1Img,
+    image: "/images/Course1.jpg",
     questions: [
       "Как быстро снять острую боль?",
       "Что важно знать о первой помощи?",
@@ -22,7 +20,7 @@ const articlesData = [
   {
     id: 2,
     title: "Мифы о здоровье тазового дна",
-    image: article2Img,
+    image: "/images/Course2.jpg",
     questions: [
       "Правда ли, что упражнения Кегеля всем полезны?",
       "Влияет ли осанка на боли в тазу?",
@@ -33,7 +31,7 @@ const articlesData = [
   {
     id: 3,
     title: "Восстановление после родов: с чего начать",
-    image: article3Img,
+    image: "/images/Course1.jpg",
     questions: [
       "Можно ли качать пресс сразу?",
       "Как понять, есть ли диастаз?",
@@ -67,7 +65,7 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ title, image, questions, link
 
       {/* Контент */}
       <div className="p-5 flex-grow flex flex-col">
-        <h3 className="text-lg font-serif font-bold text-gray-900 mb-4 leading-snug line-clamp-2 min-h-[3.5rem]">
+        <h3 className="text-lg font-serif font-bold text-gray-900 mb-4 leading-snug line-clamp-2 min-h-14">
           {title}
         </h3>
 
@@ -85,7 +83,7 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ title, image, questions, link
 
         <div className="mt-auto pt-4 border-t border-gray-50">
           <Link to={link}>
-            <Button variant="outline" className="w-full py-2.5 !rounded-xl text-sm font-semibold border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300 hover:shadow-md transition-all">
+            <Button variant="outline" className="w-full py-2.5 rounded-xl! text-sm font-semibold border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300 hover:shadow-md transition-all">
               Читать статью
             </Button>
           </Link>
@@ -122,7 +120,7 @@ export const ArticleSection: React.FC = () => {
 
         {/* Кнопка "Все статьи" */}
         <div className="text-center mt-12">
-          <button className="inline-flex items-center gap-2 text-gray-500 hover:text-rose-600 font-medium transition-colors group">
+          <button className="inline-flex items-center gap-2 px-8 py-3 bg-white border-2 border-rose-300 text-rose-600! font-semibold rounded-2xl! hover:border-rose-500! hover:bg-rose-50 hover:-translate-y-1 hover:shadow-lg hover:shadow-rose-100/50 transition-all duration-300 group">
             Смотреть все статьи
             <svg className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />

@@ -77,6 +77,23 @@ func (r *ModuleRepo) Update(ctx context.Context, module *domain.Module) error {
 	return err
 }
 
+func (r *ModuleRepo) UpdateOrderBatch(ctx context.Context, courseID int, orders map[int]int) error {
+	// orders: map[moduleID]newOrder
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	for id, order := range orders {
+		_, err := tx.ExecContext(ctx, `UPDATE modules SET "order" = $1 WHERE id = $2 AND course_id = $3`, order, id, courseID)
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 // Delete удаляет модуль и все его уроки (каскадно)
 func (r *ModuleRepo) Delete(ctx context.Context, moduleID int) error {
 	// Сначала удаляем уроки (если нет ON DELETE CASCADE)

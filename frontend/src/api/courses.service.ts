@@ -1,21 +1,20 @@
 import apiClient from './axiosInstance';
-import type { 
-  Course, 
-  CourseModule, 
-  Lesson, 
-  CreateCourseDto, 
-  CreateModuleDto, 
-  CourseFullResponse, 
-  FullCourseModule, 
+import type {
+  Course,
+  CourseModule,
+  Lesson,
+  CreateCourseDto,
+  CreateModuleDto,
+  CourseFullResponse,
+  FullCourseModule,
   FullCourseLesson,
   CreateLessonDto,
-  BonusItem
+  UpdateFullCourseDto
 } from './types';
 
 // --- Мапперы (Преобразование данных с бэкенда) ---
 
 const mapCourse = (data: any): Course => {
-
   return {
     id: data.ID,
     title: data.Title,
@@ -31,16 +30,17 @@ const mapCourse = (data: any): Course => {
     course_basis: data.course_basis || '',
     class_basis: data.class_basis || '',
     bonuses: data.bonuses || [],
-    is_purchased: data.is_purchased,
-    progress: data.progress,
+
+    is_purchased: data.is_purchased || false,
+    progress: data.progress || 0,
+    modules: data.modules || [],
   };
 };
 
 const mapLesson = (data: any): FullCourseLesson => ({
-
   id: data.id,
   module_id: data.module_id,
-  title: data.title ,
+  title: data.title,
   description: data.description || '',
   video_embed_id: data.video_embed_id,
   private_key: data.private_key,
@@ -48,30 +48,31 @@ const mapLesson = (data: any): FullCourseLesson => ({
 });
 
 const mapModule = (data: any): FullCourseModule => ({
-  id: data.id ,
+  id: data.id,
   course_id: data.course_id,
-  title: data.title ,
-  order: data.order ,
+  title: data.title,
+  order: data.order,
   lessons: data.lessons ? data.lessons.map(mapLesson) : [],
 });
 
-// --- Сервис ---
 
 export const coursesService = {
+
   getAllCourses: async (): Promise<Course[]> => {
     const response = await apiClient.get<any[]>('/courses');
     return response.data.map(mapCourse);
   },
 
-  getCourseById: async (id: number): Promise<Course> => {
-    const response = await apiClient.get<any>(`/courses/${id}`);
-    return mapCourse(response.data);
+  getAllCoursesAdmin: async (): Promise<Course[]> => {
+    const response = await apiClient.get<{ courses: any[] }>('/admin/courses/all');
+    return response.data.courses.map(mapCourse);
   },
+
 
   getCourseFull: async (id: number): Promise<CourseFullResponse> => {
     const response = await apiClient.get<any>(`/courses/${id}/full`);
     const data = response.data;
-    
+
     const courseData = data.course || data;
     const modulesData = data.modules || [];
 
@@ -85,17 +86,26 @@ export const coursesService = {
     await apiClient.post('/courses', data);
   },
 
+
   createCourseWithModules: async (data: any): Promise<void> => {
     await apiClient.post('/courses/with-modules', data);
   },
 
-  updateCourse: async (id: number, data: Partial<CreateCourseDto>): Promise<void> => {
+
+  updateCourse: async (id: number, data: Partial<UpdateFullCourseDto>): Promise<void> => {
     await apiClient.put(`/courses/${id}`, data);
   },
 
-  deleteCourse: async (id: number): Promise<void> => {
-    await apiClient.delete(`/courses/${id}`);
+
+  updateFullCourse: async (id: number, data: UpdateFullCourseDto): Promise<void> => {
+    await apiClient.put(`/courses/${id}/full-update`, data);
   },
+
+
+  toggleCourseStatus: async (id: number, isActive: boolean): Promise<void> => {
+    await apiClient.patch(`/courses/${id}/status`, { is_active: isActive });
+  },
+
 
   getCourseModules: async (courseId: number): Promise<CourseModule[]> => {
     const response = await apiClient.get<any[]>(`/courses/${courseId}/modules`);
@@ -122,7 +132,7 @@ export const coursesService = {
   getModuleLessons: async (moduleId: number): Promise<Lesson[]> => {
     const response = await apiClient.get<any>(`/modules/${moduleId}/lessons`);
     const lessonsData = response.data.lessons || response.data;
-    
+
     if (!Array.isArray(lessonsData)) return [];
 
     return lessonsData.map((l: any) => ({
@@ -148,6 +158,16 @@ export const coursesService = {
     await apiClient.delete(`/lessons/${id}`);
   },
 
+  reorderLessons: async (moduleId: number, lessonIds: number[]): Promise<void> => {
+    // Маршрут теперь ожидает :id, который мы передаем как moduleId
+    await apiClient.put(`/modules/${moduleId}/lessons/reorder`, { lesson_ids: lessonIds });
+  },
+
+  reorderModules: async (courseId: number, moduleIds: number[]): Promise<void> => {
+    await apiClient.put(`/courses/${courseId}/modules/reorder`, { module_ids: moduleIds });
+  },
+
+  /**  Прогресс и покупка  */
   markLessonComplete: async (lessonId: number): Promise<void> => {
     await apiClient.post(`/progress/lessons/${lessonId}/mark`);
   },

@@ -1,6 +1,7 @@
 package course
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -34,33 +35,40 @@ func NewUpdateHandler(usecase *update.Usecase) *UpdateHandler {
 	return &UpdateHandler{usecase: usecase}
 }
 
+// Handle обрабатывает PUT /courses/:id (полное обновление полей)
 func (h *UpdateHandler) Handle(c *gin.Context) {
-	courseID, err := strconv.Atoi(c.Param("id"))
+	idStr := c.Param("id")
+	courseID, err := strconv.Atoi(idStr)
 	if err != nil {
-		common.HandleError(c, common.HttpError("invalid course ID", http.StatusBadRequest))
+		log.Printf("[ERROR] Handler.Handle: invalid ID format '%s': %v", idStr, err)
+		common.HandleError(c, domain.ErrInvalidID)
 		return
 	}
 
+	log.Printf("[INFO] Handler.Handle: received request to update course ID=%d", courseID)
+
 	if !middleware.RequireAdmin(c) {
+		log.Printf("[WARN] Handler.Handle: access denied for course ID=%d (not admin)", courseID)
 		common.HandleError(c, domain.ErrAccessDenied)
 		return
 	}
 
 	var req updateCourseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("[ERROR] Handler.Handle: binding error for course ID=%d: %v", courseID, err)
 		common.HandleError(c, err)
 		return
 	}
 
-	userID := middleware.GetUserID(c)
-	input := update.Input{
+	log.Printf("[DEBUG] Handler.Handle: bound data for course ID=%d, IsActive=%v", courseID, req.IsActive)
+
+	course := &domain.Course{
 		ID:                courseID,
 		Title:             req.Title,
 		Description:       req.Description,
 		IsPublic:          req.IsPublic,
 		Price:             req.Price,
 		IsActive:          req.IsActive,
-		AuthorID:          userID,
 		CoverImageURL:     req.CoverImageURL,
 		Contraindications: req.Contraindications,
 		Recommendations:   req.Recommendations,
@@ -70,10 +78,52 @@ func (h *UpdateHandler) Handle(c *gin.Context) {
 		Bonuses:           req.Bonuses,
 	}
 
-	if err := h.usecase.Execute(c.Request.Context(), input); err != nil {
+	if err := h.usecase.Execute(c.Request.Context(), course); err != nil {
+		log.Printf("[ERROR] Handler.Handle: usecase execution failed for course ID=%d: %v", courseID, err)
 		common.HandleError(c, err)
 		return
 	}
 
+	log.Printf("[INFO] Handler.Handle: successfully updated course ID=%d", courseID)
+	c.JSON(http.StatusOK, gin.H{"message": "Course updated successfully"})
+}
+
+// HandleStatusPatch обрабатывает PATCH /courses/:id/status
+func (h *UpdateHandler) HandleStatusPatch(c *gin.Context) {
+	idStr := c.Param("id")
+	courseID, err := strconv.Atoi(idStr)
+	if err != nil {
+		log.Printf("[ERROR] Handler.HandleStatusPatch: invalid ID format '%s': %v", idStr, err)
+		common.HandleError(c, domain.ErrInvalidID)
+		return
+	}
+
+	log.Printf("[INFO] Handler.HandleStatusPatch: received request for course ID=%d", courseID)
+
+	if !middleware.RequireAdmin(c) {
+		log.Printf("[WARN] Handler.HandleStatusPatch: access denied for course ID=%d", courseID)
+		common.HandleError(c, domain.ErrAccessDenied)
+		return
+	}
+
+	var req struct {
+		IsActive bool `json:"is_active"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("[ERROR] Handler.HandleStatusPatch: binding error for course ID=%d: %v", courseID, err)
+		common.HandleError(c, err)
+		return
+	}
+
+	log.Printf("[DEBUG] Handler.HandleStatusPatch: setting course ID=%d IsActive=%v", courseID, req.IsActive)
+
+	if err := h.usecase.UpdateStatus(c.Request.Context(), courseID, req.IsActive); err != nil {
+		log.Printf("[ERROR] Handler.HandleStatusPatch: usecase execution failed for course ID=%d: %v", courseID, err)
+		common.HandleError(c, err)
+		return
+	}
+
+	log.Printf("[INFO] Handler.HandleStatusPatch: successfully updated status for course ID=%d", courseID)
 	c.Status(http.StatusOK)
 }

@@ -27,6 +27,7 @@ import (
 	courseGetFull "github.com/Skorpsrgvch/online-courses/internal/usecase/course/getfull"
 	courseList "github.com/Skorpsrgvch/online-courses/internal/usecase/course/list"
 	courseUpdate "github.com/Skorpsrgvch/online-courses/internal/usecase/course/update"
+	"github.com/Skorpsrgvch/online-courses/internal/usecase/course/updatefullcourse"
 
 	lessonCreate "github.com/Skorpsrgvch/online-courses/internal/usecase/lesson/create"
 	lessonDelete "github.com/Skorpsrgvch/online-courses/internal/usecase/lesson/delete"
@@ -76,6 +77,7 @@ func main() {
 	userRepo := postgres.NewUserRepo(dbConn)
 	courseRepo := postgres.NewCourseRepo(dbConn)
 	courseTxRepo := postgres.NewCourseTxRepo(dbConn)
+	courseFullRepo := postgres.NewCourseFullRepo(dbConn)
 	moduleRepo := postgres.NewModuleRepo(dbConn)
 	lessonRepo := postgres.NewLessonRepo(dbConn)
 	progressRepo := postgres.NewProgressRepo(dbConn)
@@ -92,9 +94,13 @@ func main() {
 	createCourseUC, _ := courseCreate.NewUsecase(courseRepo)
 	createWithModulesUC, _ := createwithmodules.NewUsecase(courseTxRepo)
 	getFullCourseUC, _ := courseGetFull.NewUsecase(courseRepo, moduleRepo, lessonRepo, purchaseRepo)
-	updateCourseUC, _ := courseUpdate.NewUsecase(courseRepo, courseRepo)
+	updateCourseUC, err := courseUpdate.NewUsecase(courseRepo)
+	if err != nil {
+		log.Fatalf("Failed to create update course usecase: %v", err)
+	}
 	deleteCourseUC, _ := courseDelete.NewUsecase(courseRepo)
 	listCourseUC, _ := courseList.NewUsecase(courseRepo)
+	updateFullCourseUC := updatefullcourse.NewUsecase(courseFullRepo)
 
 	// Модули
 	createModuleUC, _ := moduleCreate.NewUsecase(moduleRepo)
@@ -137,6 +143,9 @@ func main() {
 	updateCourseHandler := course.NewUpdateHandler(updateCourseUC)
 	deleteCourseHandler := course.NewDeleteHandler(deleteCourseUC)
 	listCourseHandler := course.NewListHandler(listCourseUC)
+	updateFullCourseHandler := course.NewUpdateFullCourseHandler(updateFullCourseUC)
+
+	reorderHandler := course.NewReorderHandler(updateFullCourseUC)
 
 	// Модули
 	createModuleHandler := module.NewCreateHandler(createModuleUC)
@@ -172,7 +181,7 @@ func main() {
 	r.Use(func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
@@ -212,19 +221,39 @@ func main() {
 		protectedApi.GET("/user/profile", userProfileHandler.Handle)
 		protectedApi.GET("/user/courses", userCoursesHandler.Handle)
 
-		// Управление курсами (создание/изменение)
+		// Управление курсами
 		protectedApi.POST("/courses", createCourseHandler.Handle)
 		protectedApi.POST("/courses/with-modules", createWithModulesHandler.Handle)
 		protectedApi.PUT("/courses/:id", updateCourseHandler.Handle)
+		protectedApi.PUT("/courses/:id/full-update", updateFullCourseHandler.Handle)
+		protectedApi.PATCH("/courses/:id/status", updateCourseHandler.HandleStatusPatch)
 		protectedApi.DELETE("/courses/:id", deleteCourseHandler.Handle)
+		protectedApi.GET("/admin/courses/all", listCourseHandler.HandleAdmin)
 
-		// Управление модулями и уроками
+		// === Модули ===
+		// Создаем модуль
 		protectedApi.POST("/modules", createModuleHandler.Handle)
+
+		// Получаем уроки модуля (используем :id для consistency)
+		protectedApi.GET("/modules/:id/lessons", getLessonHandler.Handle)
+
+		// Обновляем/Удаляем модуль по ID
 		protectedApi.PUT("/modules/:id", updateModuleHandler.Handle)
 		protectedApi.DELETE("/modules/:id", deleteModuleHandler.Handle)
 
+		// === Переупорядочивание (Reorder) ===
+		// Сортировка модулей внутри курса: PUT /courses/:id/modules/reorder
+		protectedApi.PUT("/courses/:id/modules/reorder", reorderHandler.HandleModules)
+
+		// Сортировка уроков внутри модуля: PUT /modules/:id/lessons/reorder
+		// ВАЖНО: Используем тот же параметр :id, что и выше для модулей, чтобы не было конфликта
+		protectedApi.PUT("/modules/:id/lessons/reorder", reorderHandler.HandleLessons)
+
+		// === Уроки ===
+		// Создаем урок
 		protectedApi.POST("/lessons", createLessonHandler.Handle)
-		protectedApi.GET("/modules/:id/lessons", getLessonHandler.Handle)
+
+		// Обновляем/Удаляем урок по ID
 		protectedApi.PUT("/lessons/:id", updateLessonHandler.Handle)
 		protectedApi.DELETE("/lessons/:id", deleteLessonHandler.Handle)
 

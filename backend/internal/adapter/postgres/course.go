@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
 )
@@ -17,8 +18,6 @@ func NewCourseRepo(db *sql.DB) *CourseRepo {
 	return &CourseRepo{db: db}
 }
 
-// scanCourseHelper помогает сканировать строку результата в структуру Course
-// Принимает указатель на row и заполняет курс, включая новые поля
 func scanCourseHelper(row *sql.Row) (*domain.Course, error) {
 	var c domain.Course
 	var bonusesRaw []byte
@@ -47,7 +46,6 @@ func scanCourseHelper(row *sql.Row) (*domain.Course, error) {
 		return nil, err
 	}
 
-	// Обработка NULL значений для строк
 	if coverURL.Valid {
 		c.CoverImageURL = coverURL.String
 	}
@@ -67,7 +65,6 @@ func scanCourseHelper(row *sql.Row) (*domain.Course, error) {
 		c.ClassBasis = classBasis.String
 	}
 
-	// Парсим JSON бонусов
 	if len(bonusesRaw) > 0 {
 		if err := json.Unmarshal(bonusesRaw, &c.Bonuses); err != nil {
 			c.Bonuses = []domain.BonusItem{}
@@ -79,7 +76,6 @@ func scanCourseHelper(row *sql.Row) (*domain.Course, error) {
 	return &c, nil
 }
 
-// GetByID возвращает курс по ID
 func (r *CourseRepo) GetByID(ctx context.Context, id int) (*domain.Course, error) {
 	query := `
 		SELECT id, title, description, is_public, price, author_id, is_active,
@@ -91,13 +87,12 @@ func (r *CourseRepo) GetByID(ctx context.Context, id int) (*domain.Course, error
 		       COALESCE(class_basis, ''),
 		       COALESCE(bonuses, '[]'::jsonb)
 		FROM courses
-		WHERE id = $1 AND is_active = true
+		WHERE id = $1 
 	`
 	row := r.db.QueryRowContext(ctx, query, id)
 	return scanCourseHelper(row)
 }
 
-// Save создаёт новый курс
 func (r *CourseRepo) Save(ctx context.Context, course *domain.Course) error {
 	query := `
 		INSERT INTO courses (title, description, is_public, price, author_id, is_active, cover_image_url, contraindications, recommendations, target_audience, course_basis, class_basis, bonuses)
@@ -127,7 +122,6 @@ func (r *CourseRepo) Save(ctx context.Context, course *domain.Course) error {
 	).Scan(&course.ID)
 }
 
-// Update обновляет курс
 func (r *CourseRepo) Update(ctx context.Context, course *domain.Course) error {
 	bonusesJSON, err := json.Marshal(course.Bonuses)
 	if err != nil {
@@ -146,6 +140,8 @@ func (r *CourseRepo) Update(ctx context.Context, course *domain.Course) error {
 		    bonuses = $12
 		WHERE id = $13
 	`
+
+	log.Printf("[DEBUG] Repo.Update: executing SQL for course ID=%d", course.ID)
 	_, err = r.db.ExecContext(ctx, query,
 		course.Title,
 		course.Description,
@@ -161,7 +157,38 @@ func (r *CourseRepo) Update(ctx context.Context, course *domain.Course) error {
 		bonusesJSON,
 		course.ID,
 	)
+
+	if err != nil {
+		log.Printf("[ERROR] Repo.Update: SQL execution failed for course ID=%d: %v", course.ID, err)
+		return err
+	}
+	log.Printf("[INFO] Repo.Update: successfully updated course ID=%d", course.ID)
 	return err
+}
+
+// UpdateStatus быстро переключает только флаг is_active
+func (r *CourseRepo) UpdateStatus(ctx context.Context, id int, isActive bool) error {
+	query := `UPDATE courses SET is_active = $1 WHERE id = $2`
+
+	log.Printf("[DEBUG] Repo.UpdateStatus: executing SQL: %s with params (isActive=%v, id=%d)", query, isActive, id)
+
+	result, err := r.db.ExecContext(ctx, query, isActive, id)
+	if err != nil {
+		log.Printf("[ERROR] Repo.UpdateStatus: SQL execution failed for course ID=%d: %v", id, err)
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		log.Printf("[WARN] Repo.UpdateStatus: could not get rows affected: %v", err)
+	} else {
+		log.Printf("[INFO] Repo.UpdateStatus: rows affected=%d for course ID=%d", rowsAffected, id)
+		if rowsAffected == 0 {
+			log.Printf("[WARN] Repo.UpdateStatus: no course found with ID=%d", id)
+		}
+	}
+
+	return nil
 }
 
 func (r *CourseRepo) SetInactive(ctx context.Context, courseID int) error {

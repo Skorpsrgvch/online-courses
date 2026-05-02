@@ -8,4 +8,5 @@ import (
 
 type CourseLister interface {
 	ListAll(ctx context.Context) ([]*domain.Course, error)
+	GetAllWithInactive(ctx context.Context) ([]*domain.Course, error)
 }

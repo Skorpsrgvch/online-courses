@@ -163,6 +163,16 @@ export interface CourseFullResponse {
   modules: FullCourseModule[];
 }
 
+
+export interface UpdateFullCourseDto extends CreateCourseDto {
+  is_active: boolean;
+}
+
+
+export interface UpdateCourseStatusDto {
+  is_active: boolean;
+}
+
 export interface UserProfile {
   id: number;
   email: string;

@@ -32,3 +32,8 @@ func (u *Usecase) Execute(ctx context.Context) (*Output, error) {
 
 	return &Output{Courses: courses}, nil
 }
+
+// ИСПРАВЛЕНО: используем courseLister и возвращаем тот же тип, что и репозиторий
+func (u *Usecase) ExecuteAdmin(ctx context.Context) ([]*domain.Course, error) {
+	return u.courseLister.GetAllWithInactive(ctx)
+}

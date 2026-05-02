@@ -6,32 +6,12 @@ import (
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
 )
 
-type Input struct {
-	ID                int
-	Title             string
-	Description       string
-	IsPublic          bool
-	Price             int
-	IsActive          bool
-	AuthorID          int
-	CoverImageURL     string
-	Contraindications string
-	Recommendations   string
-	TargetAudience    string
-	CourseBasis       string
-	ClassBasis        string
-	Bonuses           []domain.BonusItem
+type CourseRepository interface {
+	GetByID(ctx context.Context, id int) (*domain.Course, error)
+	Update(ctx context.Context, course *domain.Course) error
+	UpdateStatus(ctx context.Context, id int, isActive bool) error
 }
 
 type Usecase struct {
-	courseUpdater CourseUpdater
-	courseFinder  CourseFinder
-}
-
-type CourseUpdater interface {
-	Update(ctx context.Context, course *domain.Course) error
-}
-
-type CourseFinder interface {
-	GetByID(ctx context.Context, id int) (*domain.Course, error)
+	repo CourseRepository
 }

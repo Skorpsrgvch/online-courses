@@ -14,6 +14,7 @@ import CoursePage from './pages/Course/CoursePage';
 import LearnPage from './pages/Course/LearnPage';
 import AllCoursesPage from './pages/Course/AllCoursesPage';
 import AdminPage from './pages/Admin/AdminPage';
+import CourseFormPage from './pages/Admin/CourseFormPage';
 
 
 
@@ -38,6 +39,7 @@ const router = createBrowserRouter([
       { path: 'register', element: <RegisterPage /> },
       { path: 'password-recovery', element: <PasswordRecoveryPage /> },
       { path: 'courses', element: <AllCoursesPage /> },
+      
       {
         path: 'dashboard',
         element: (
@@ -63,6 +65,22 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={['admin']}>
             <AdminPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/admin/courses/new',
+        element: (
+          <ProtectedRoute allowedRoles={['admin']}>
+            <CourseFormPage mode="create" />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/admin/courses/:id/edit',
+        element: (
+          <ProtectedRoute allowedRoles={['admin']}>
+            <CourseFormPage mode="edit" />
           </ProtectedRoute>
         ),
       },

@@ -150,6 +150,22 @@ func (r *LessonRepo) Update(ctx context.Context, lesson *domain.Lesson) error {
 	return err
 }
 
+func (r *LessonRepo) UpdateOrderBatch(ctx context.Context, moduleID int, orders map[int]int) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	for id, order := range orders {
+		_, err := tx.ExecContext(ctx, `UPDATE lessons SET "order" = $1 WHERE id = $2 AND module_id = $3`, order, id, moduleID)
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 func (r *LessonRepo) Delete(ctx context.Context, lessonID int) error {
 	_, err := r.db.ExecContext(ctx,
 		`DELETE FROM lessons WHERE id = $1`,

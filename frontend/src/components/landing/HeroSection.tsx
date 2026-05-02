@@ -62,16 +62,7 @@ export const HeroSection: React.FC = () => {
               </button>
             </div>
 
-            <div className="pt-8 flex items-center justify-center lg:justify-center gap-6 text-sm text-gray-500">
-              <div className="flex -space-x-2">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="w-8 h-8 rounded-full bg-gray-200 border-2 border-white overflow-hidden">
-                    <img src={`https://i.pravatar.cc/100?img=${i + 10}`} alt="user" className="w-full h-full object-cover" />
-                  </div>
-                ))}
-              </div>
-              <p>Уже более <span className="font-bold text-gray-800">500+</span> женщин начали путь к восстановлению</p>
-            </div>
+            
           </div>
 
           <div className="order-first lg:order-last relative group">

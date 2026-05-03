@@ -196,3 +196,10 @@ export interface UserCourseProgress {
 export interface UserCoursesResponse {
   courses: UserCourseProgress[];
 }
+
+export interface PaymentResponse {
+  payment_id: string;       
+  confirmation_url: string;
+  status: string;           
+  expires_at?: string;     
+}

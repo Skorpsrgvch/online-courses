@@ -8,6 +8,15 @@ type Purchase struct {
 	PurchasedAt time.Time
 }
 
+type CourseWithDate struct {
+	ID            int       `json:"id"`
+	Title         string    `json:"title"`
+	Description   string    `json:"description"`
+	Price         int       `json:"price"`
+	CoverImageURL string    `json:"cover_image_url"`
+	PurchasedAt   time.Time `json:"purchased_at"`
+}
+
 func NewPurchase(userID, courseID int) *Purchase {
 	return &Purchase{
 		UserID:      userID,

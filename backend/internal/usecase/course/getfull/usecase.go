@@ -88,7 +88,8 @@ func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
 	}
 
 	return &Output{
-		Course:  course,
-		Modules: modulesOut,
+		Course:      course,
+		Modules:     modulesOut,
+		IsPurchased: hasFullAccess,
 	}, nil
 }

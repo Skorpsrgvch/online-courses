@@ -94,7 +94,6 @@ func ParseToken(tokenString string) (*Claims, error) {
 	return nil, jwt.ErrSignatureInvalid
 }
 
-// AuthMiddleware проверяет JWT из заголовка Authorization
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
@@ -108,6 +107,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		claims, err := ParseToken(tokenString)
 		if err != nil {
+			// Добавьте лог для отладки, если нужно
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": "unauthorized: invalid token",
 			})
@@ -116,8 +116,7 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		c.Set(UserIDKey, claims.UserID)
 		c.Set(RoleKey, claims.Role)
-		c.Set(EmailKey, claims.Email)
-		c.Set(NameKey, claims.Name)
+
 		c.Next()
 	}
 }

@@ -31,6 +31,27 @@ const CoursePage = () => {
 
         setCourseData(courseRes);
         setReviews(reviewsData);
+
+        // === КОНСОЛЬНЫЙ ВЫВОД ДЛЯ ОТЛАДКИ ===
+      console.group('📦 ДАННЫЕ ОТЗЫВОВ С БЭКЕНДА');
+      console.log('Полный объект отзывов (reviewsData):', reviewsData);
+      console.log('Количество отзывов:', reviewsData.length);
+      
+      if (reviewsData.length > 0) {
+        console.log('Первый отзыв (полностью):', reviewsData[0]);
+        console.log('Поля первого отзыва:', Object.keys(reviewsData[0]));
+        console.log('Значение author_name в первом отзыве:', reviewsData[0].author_name);
+        
+        // Проверка на наличие альтернативных ключей
+        const firstReviewRaw = reviewsData[0] as any;
+        if (firstReviewRaw.AuthorName) console.warn('⚠️ Найдено поле AuthorName (с большой буквы)!');
+        if (firstReviewRaw.authorName) console.warn('⚠️ Найдено поле authorName (camelCase)!');
+      } else {
+        console.warn('⚠️ Список отзывов пуст!');
+      }
+      console.groupEnd();
+      // ======================================
+      
       } catch (err: any) {
         console.error(err);
         setError(err.message || 'Не удалось загрузить курс');

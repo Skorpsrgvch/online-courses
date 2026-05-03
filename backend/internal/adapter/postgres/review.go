@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"log"
 	"time"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
@@ -17,6 +18,9 @@ func NewReviewRepo(db *sql.DB) *ReviewRepo {
 }
 
 func (r *ReviewRepo) CreateReview(ctx context.Context, review *domain.Review) error {
+	log.Printf("[DEBUG] ReviewRepo.CreateReview: UserID=%d, CourseID=%d, Rating=%d, Text=%q",
+		review.UserID, review.CourseID, review.Rating, review.Text)
+
 	query := `
 		INSERT INTO reviews (user_id, course_id, text, rating, approved, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -24,34 +28,53 @@ func (r *ReviewRepo) CreateReview(ctx context.Context, review *domain.Review) er
 		SET 
 			text = EXCLUDED.text,
 			rating = EXCLUDED.rating,
-			approved = EXCLUDED.approved, -- или false, если нужна премодерация при изменении
-			created_at = COALESCE(EXCLUDED.created_at, reviews.created_at) -- сохраняем старую дату или новую
+			approved = EXCLUDED.approved,
+			created_at = COALESCE(EXCLUDED.created_at, reviews.created_at)
 		RETURNING id
 	`
-	return r.db.QueryRowContext(ctx, query,
+
+	err := r.db.QueryRowContext(ctx, query,
 		review.UserID,
 		review.CourseID,
 		review.Text,
 		review.Rating,
-		review.Approved, // обычно false для новых/измененных
+		review.Approved,
 		review.CreatedAt,
 	).Scan(&review.ID)
+
+	if err != nil {
+		log.Printf("[ERROR] ReviewRepo.CreateReview: DB error: %v", err)
+		return err
+	}
+
+	log.Printf("[INFO] ReviewRepo.CreateReview: Success, ID=%d", review.ID)
+	return nil
 }
 
 func (r *ReviewRepo) GetApprovedReviewsByCourse(ctx context.Context, courseID int) ([]*domain.Review, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, user_id, course_id, text, rating, approved, created_at
-		 FROM reviews
-		 WHERE course_id = $1 AND approved = true
-		 ORDER BY created_at DESC`,
-		courseID,
-	)
+
+	query := `
+        SELECT 
+    r.id, 
+    r.user_id, 
+    r.course_id, 
+    r.text, 
+    r.rating, 
+    r.approved, 
+    r.created_at, 
+    COALESCE(NULLIF(TRIM(u.full_name), ''), 'Аноним') as author_name
+    FROM reviews r
+    LEFT JOIN users u ON r.user_id = u.id
+    WHERE r.course_id = $1 AND r.approved = true
+    ORDER BY r.created_at DESC
+    `
+
+	rows, err := r.db.QueryContext(ctx, query, courseID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	// ИСПРАВЛЕНИЕ: Инициализируем срез, чтобы он не был nil
 	reviews := make([]*domain.Review, 0)
 
 	for rows.Next() {
@@ -61,15 +84,19 @@ func (r *ReviewRepo) GetApprovedReviewsByCourse(ctx context.Context, courseID in
 			rating                 int
 			approved               bool
 			createdAt              time.Time
+			authorName             string
 		)
-		err := rows.Scan(&id, &userID, &courseIDDB, &text, &rating, &approved, &createdAt)
+		// Добавляем authorName в Scan
+		err := rows.Scan(&id, &userID, &courseIDDB, &text, &rating, &approved, &createdAt, &authorName)
 		if err != nil {
 			return nil, err
 		}
-		reviews = append(reviews, domain.RestoreReview(id, userID, courseIDDB, text, rating, approved, createdAt))
+
+		log.Printf("[DEBUG] Row scanned: ID=%d, UserID=%d, AuthorName='%s'", id, userID, authorName)
+
+		reviews = append(reviews, domain.RestoreReview(id, userID, courseIDDB, text, rating, approved, createdAt, authorName))
 	}
 
-	// Проверка ошибок итерации
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
@@ -79,10 +106,12 @@ func (r *ReviewRepo) GetApprovedReviewsByCourse(ctx context.Context, courseID in
 
 func (r *ReviewRepo) GetPendingReviews(ctx context.Context) ([]*domain.Review, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, user_id, course_id, text, rating, approved, created_at
-		 FROM reviews
-		 WHERE approved = false
-		 ORDER BY created_at DESC`,
+		`SELECT r.id, r.user_id, r.course_id, r.text, r.rating, r.approved, r.created_at, 
+               COALESCE(NULLIF(u.full_name, ''), 'Аноним') as author_name
+        FROM reviews r
+        JOIN users u ON r.user_id = u.id
+        WHERE r.approved = false
+        ORDER BY r.created_at DESC`,
 	)
 	if err != nil {
 		return nil, err
@@ -98,28 +127,23 @@ func (r *ReviewRepo) GetPendingReviews(ctx context.Context) ([]*domain.Review, e
 			rating               int
 			approved             bool
 			createdAt            time.Time
+			authorName           string
 		)
-		err := rows.Scan(&id, &userID, &courseID, &text, &rating, &approved, &createdAt)
+		err := rows.Scan(&id, &userID, &courseID, &text, &rating, &approved, &createdAt, &authorName)
 		if err != nil {
 			return nil, err
 		}
-		reviews = append(reviews, domain.RestoreReview(id, userID, courseID, text, rating, approved, createdAt))
+		reviews = append(reviews, domain.RestoreReview(id, userID, courseID, text, rating, approved, createdAt, authorName))
 	}
 	return reviews, nil
 }
 
 func (r *ReviewRepo) ApproveReview(ctx context.Context, reviewID int) error {
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE reviews SET approved = true WHERE id = $1`,
-		reviewID,
-	)
+	_, err := r.db.ExecContext(ctx, `UPDATE reviews SET approved = true WHERE id = $1`, reviewID)
 	return err
 }
 
 func (r *ReviewRepo) RejectReview(ctx context.Context, reviewID int) error {
-	_, err := r.db.ExecContext(ctx,
-		`DELETE FROM reviews WHERE id = $1`,
-		reviewID,
-	)
+	_, err := r.db.ExecContext(ctx, `DELETE FROM reviews WHERE id = $1`, reviewID)
 	return err
 }

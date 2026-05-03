@@ -17,13 +17,14 @@ type Output struct {
 }
 
 type ReviewDTO struct {
-	ID        int       `json:"id"`
-	UserID    int       `json:"user_id"`
-	CourseID  int       `json:"course_id"`
-	Text      string    `json:"text"`
-	Rating    int       `json:"rating"`
-	Approved  bool      `json:"approved"`
-	CreatedAt time.Time `json:"created_at"`
+	ID         int       `json:"id"`
+	UserID     int       `json:"user_id"`
+	CourseID   int       `json:"course_id"`
+	Text       string    `json:"text"`
+	Rating     int       `json:"rating"`
+	Approved   bool      `json:"approved"`
+	CreatedAt  time.Time `json:"created_at"`
+	AuthorName string    `json:"author_name"` // 1. Добавили поле
 }
 
 type ReviewReader interface {
@@ -50,13 +51,14 @@ func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
 	var dtos []ReviewDTO
 	for _, r := range reviews {
 		dtos = append(dtos, ReviewDTO{
-			ID:        r.ID,
-			UserID:    r.UserID,
-			CourseID:  r.CourseID,
-			Text:      r.Text,
-			Rating:    r.Rating,
-			Approved:  r.Approved,
-			CreatedAt: r.CreatedAt,
+			ID:         r.ID,
+			UserID:     r.UserID,
+			CourseID:   r.CourseID,
+			Text:       r.Text,
+			Rating:     r.Rating,
+			Approved:   r.Approved,
+			CreatedAt:  r.CreatedAt,
+			AuthorName: r.AuthorName, // 2. Копируем имя автора из доменной модели
 		})
 	}
 

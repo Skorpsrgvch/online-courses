@@ -75,6 +75,25 @@ CREATE TABLE IF NOT EXISTS reviews (
     UNIQUE(user_id, course_id)
 );
 
+-- Платежи (ЮKassa)
+CREATE TABLE IF NOT EXISTS payments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(), -- ID платежа от ЮKassa
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    
+    amount INT NOT NULL,
+    currency VARCHAR(3) NOT NULL DEFAULT 'RUB',
+    
+    status VARCHAR(20) NOT NULL CHECK (status IN ('pending', 'waiting_for_capture', 'succeeded', 'canceled', 'failed')),
+    
+    confirmation_url TEXT,
+    description TEXT,
+    
+    created_at TIMESTAMP DEFAULT NOW(),
+    expires_at TIMESTAMP,
+    paid_at TIMESTAMP
+);
+
 -- Индексы
 CREATE INDEX IF NOT EXISTS idx_courses_author ON courses(author_id);
 CREATE INDEX IF NOT EXISTS idx_modules_course ON modules(course_id);
@@ -83,3 +102,6 @@ CREATE INDEX IF NOT EXISTS idx_progress_user ON user_progress(user_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_course ON reviews(course_id) WHERE approved = true;
 CREATE INDEX IF NOT EXISTS idx_purchases_user ON user_purchases(user_id);
 
+CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id);
+CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
+CREATE INDEX IF NOT EXISTS idx_payments_created ON payments(created_at);

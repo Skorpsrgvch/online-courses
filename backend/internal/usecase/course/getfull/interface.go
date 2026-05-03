@@ -31,8 +31,9 @@ type ModuleOutput struct {
 }
 
 type Output struct {
-	Course  *domain.Course `json:"course"`
-	Modules []ModuleOutput `json:"modules"`
+	Course      *domain.Course `json:"course"`
+	Modules     []ModuleOutput `json:"modules"`
+	IsPurchased bool           `json:"is_purchased"`
 }
 
 type Usecase struct {

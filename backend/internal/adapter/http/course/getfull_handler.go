@@ -1,6 +1,7 @@
 package course
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -28,9 +29,15 @@ func (h *GetFullHandler) Handle(c *gin.Context) {
 	userID := 0
 	role := ""
 
-	if uid, exists := c.Get("user_id"); exists && uid != nil {
-		if idVal, ok := uid.(int); ok {
-			userID = idVal
+	userIDRaw, exists := c.Get("user_id") // Попробуйте жестко задать строку ключа
+	if !exists {
+		log.Println("Key 'user_id' not found in context")
+	} else {
+		log.Printf("Raw value for user_id: %v (type: %T)", userIDRaw, userIDRaw)
+		if id, ok := userIDRaw.(int); ok {
+			userID = id
+		} else {
+			log.Println("Type assertion failed for user_id")
 		}
 	}
 
@@ -39,6 +46,7 @@ func (h *GetFullHandler) Handle(c *gin.Context) {
 			role = roleVal
 		}
 	}
+	log.Printf("[DEBUG] GetFullHandler: UserID from context = %v, Role = %v", userID, role)
 
 	input := getfull.Input{
 		CourseID: courseID,
@@ -50,6 +58,10 @@ func (h *GetFullHandler) Handle(c *gin.Context) {
 	if err != nil {
 		common.HandleError(c, err)
 		return
+	}
+
+	if output.Course != nil {
+		output.Course.IsPurchased = output.IsPurchased
 	}
 
 	c.JSON(http.StatusOK, output)

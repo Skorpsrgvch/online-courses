@@ -15,6 +15,8 @@ import (
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/lesson"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/middleware"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/module"
+	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/payment"
+	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/payment/yookassa"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/progress"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/review"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/user"
@@ -28,6 +30,10 @@ import (
 	courseList "github.com/Skorpsrgvch/online-courses/internal/usecase/course/list"
 	courseUpdate "github.com/Skorpsrgvch/online-courses/internal/usecase/course/update"
 	"github.com/Skorpsrgvch/online-courses/internal/usecase/course/updatefullcourse"
+	"github.com/Skorpsrgvch/online-courses/internal/usecase/payment/callback"
+	"github.com/Skorpsrgvch/online-courses/internal/usecase/payment/confirm"
+	"github.com/Skorpsrgvch/online-courses/internal/usecase/payment/create"
+	"github.com/Skorpsrgvch/online-courses/internal/usecase/payment/list"
 
 	lessonCreate "github.com/Skorpsrgvch/online-courses/internal/usecase/lesson/create"
 	lessonDelete "github.com/Skorpsrgvch/online-courses/internal/usecase/lesson/delete"
@@ -49,6 +55,7 @@ import (
 	reviewReject "github.com/Skorpsrgvch/online-courses/internal/usecase/review/reject"
 	userCourses "github.com/Skorpsrgvch/online-courses/internal/usecase/user/courses"
 	userProfile "github.com/Skorpsrgvch/online-courses/internal/usecase/user/profile"
+
 	"github.com/Skorpsrgvch/online-courses/pkg/db"
 	"github.com/gin-gonic/gin"
 )
@@ -60,6 +67,21 @@ func main() {
 	if dbURL == "" {
 		dbURL = "postgres://courses:securepass@localhost:5432/courses?sslmode=disable"
 	}
+
+	yookassaConfig := yookassa.Config{
+		ShopID:    os.Getenv("YOOKASSA_SHOP_ID"),
+		SecretKey: os.Getenv("YOOKASSA_SECRET_KEY"),
+		BaseURL:   os.Getenv("YOOKASSA_BASE_URL"),
+	}
+	if yookassaConfig.BaseURL == "" {
+		yookassaConfig.BaseURL = "https://api.yookassa.ru/v3"
+	}
+
+	if yookassaConfig.ShopID == "" || yookassaConfig.SecretKey == "" {
+		log.Fatal("YOOKASSA_SHOP_ID and YOOKASSA_SECRET_KEY must be set")
+	}
+
+	paymentGateway := yookassa.NewGateway(yookassaConfig)
 
 	// Ожидание подключения к БД
 	if err := waitForDB(dbURL); err != nil {
@@ -74,16 +96,28 @@ func main() {
 	defer dbConn.Close()
 
 	// === Репозитории ===
+	// Инициализируем каждый репозиторий только один раз
 	userRepo := postgres.NewUserRepo(dbConn)
+
+	// CourseRepo используется и старыми, и новыми юзкейсами.
+	// Убедитесь, что postgres.CourseRepo реализует все необходимые интерфейсы.
 	courseRepo := postgres.NewCourseRepo(dbConn)
+
 	courseTxRepo := postgres.NewCourseTxRepo(dbConn)
 	courseFullRepo := postgres.NewCourseFullRepo(dbConn)
+
 	moduleRepo := postgres.NewModuleRepo(dbConn)
 	lessonRepo := postgres.NewLessonRepo(dbConn)
 	progressRepo := postgres.NewProgressRepo(dbConn)
 	reviewRepo := postgres.NewReviewRepo(dbConn)
+
+	// PurchaseRepo используется для проверки покупок и их создания
 	purchaseRepo := postgres.NewPurchaseRepo(dbConn)
+
 	resetTokenRepo := postgres.NewResetTokenRepo(dbConn)
+
+	// PaymentRepo для работы с платежами
+	paymentRepo := postgres.NewPaymentRepository(dbConn)
 
 	// === Юзкейсы ===
 	// Аутентификация
@@ -123,10 +157,19 @@ func main() {
 	listReviewUC, _ := reviewList.NewUsecase(reviewRepo)
 	pendingReviewUC, _ := reviewPending.NewUsecase(reviewRepo)
 	rejectReviewUC, _ := reviewReject.NewUsecase(reviewRepo)
+
+	// Пользователь
 	userProfileUC, _ := userProfile.NewUsecase(userRepo)
 	userCoursesUC, _ := userCourses.NewUsecase(courseRepo, purchaseRepo, progressRepo)
 	forgotPasswordUC, _ := forgotPassword.NewUsecase(userRepo, resetTokenRepo)
 	resetPasswordUC, _ := resetPassword.NewUsecase(resetTokenRepo, userRepo)
+
+	// === UseCases: Платежи ===
+	confirmPaymentUC := confirm.NewUseCase(paymentRepo, purchaseRepo)
+	callbackPaymentUC := callback.NewUseCase(paymentRepo, purchaseRepo)
+	listPaymentUC := list.NewUseCase(paymentRepo)
+
+	createPaymentUC := create.NewUseCase(paymentRepo, courseRepo, purchaseRepo, paymentGateway)
 
 	// === Хендлеры ===
 	// Аутентификация
@@ -173,6 +216,12 @@ func main() {
 	userProfileHandler := user.NewProfileHandler(userProfileUC)
 	userCoursesHandler := user.NewCoursesHandler(userCoursesUC)
 
+	// Платежи
+	createPaymentHandler := payment.NewCreateHandler(createPaymentUC)
+	confirmPaymentHandler := payment.NewConfirmHandler(confirmPaymentUC)
+	callbackPaymentHandler := payment.NewCallbackHandler(callbackPaymentUC)
+	listPaymentHandler := payment.NewListHandler(listPaymentUC)
+
 	// === Роутер ===
 	r := gin.New()
 	r.Use(gin.Recovery())
@@ -190,7 +239,7 @@ func main() {
 		c.Next()
 	})
 
-	// 1. ПОЛНОСТЬЮ ПУБЛИЧНЫЕ ЭНДПОИНТЫ (без /api или просто без Middleware)
+	// 1. ПОЛНОСТЬЮ ПУБЛИЧНЫЕ ЭНДПОИНТЫ
 	authGroup := r.Group("/api/auth")
 	{
 		authGroup.POST("/register", registerHandler.Handle)
@@ -199,19 +248,19 @@ func main() {
 		authGroup.POST("/reset-password", resetPasswordHandler.Handle)
 	}
 
-	// 2. ПУБЛИЧНЫЙ ПРОСМОТР (Контент доступный гостям)
+	// 2. ПУБЛИЧНЫЙ ПРОСМОТР
 	publicApi := r.Group("/api")
 	{
-		// Курсы и их детали
 		publicApi.GET("/courses", listCourseHandler.Handle)
-		publicApi.GET("/courses/:id/full", getFullCourseHandler.Handle)
 
-		// Модули и отзывы
 		publicApi.GET("/courses/:id/modules", getModuleHandler.Handle)
 		publicApi.GET("/courses/:id/reviews", listReviewHandler.Handle)
+
+		publicApi.GET("/payments/:payment_id/confirm", confirmPaymentHandler.HandleGet)
+		publicApi.POST("/payments/callback", callbackPaymentHandler.Handle)
 	}
 
-	// 3. ЗАЩИЩЁННЫЕ ЭНДПОИНТЫ (Требуют авторизации)
+	// 3. ЗАЩИЩЁННЫЕ ЭНДПОИНТЫ
 	protectedApi := r.Group("/api")
 	protectedApi.Use(middleware.AuthMiddleware())
 	{
@@ -220,6 +269,8 @@ func main() {
 		protectedApi.POST("/auth/refresh", auth.NewRefreshHandler().Handle)
 		protectedApi.GET("/user/profile", userProfileHandler.Handle)
 		protectedApi.GET("/user/courses", userCoursesHandler.Handle)
+
+		protectedApi.GET("/courses/:id/full", getFullCourseHandler.Handle)
 
 		// Управление курсами
 		protectedApi.POST("/courses", createCourseHandler.Handle)
@@ -230,39 +281,33 @@ func main() {
 		protectedApi.DELETE("/courses/:id", deleteCourseHandler.Handle)
 		protectedApi.GET("/admin/courses/all", listCourseHandler.HandleAdmin)
 
-		// === Модули ===
-		// Создаем модуль
+		// Модули
 		protectedApi.POST("/modules", createModuleHandler.Handle)
-
-		// Получаем уроки модуля (используем :id для consistency)
 		protectedApi.GET("/modules/:id/lessons", getLessonHandler.Handle)
-
-		// Обновляем/Удаляем модуль по ID
 		protectedApi.PUT("/modules/:id", updateModuleHandler.Handle)
 		protectedApi.DELETE("/modules/:id", deleteModuleHandler.Handle)
 
-		// === Переупорядочивание (Reorder) ===
-		// Сортировка модулей внутри курса: PUT /courses/:id/modules/reorder
+		// Переупорядочивание
 		protectedApi.PUT("/courses/:id/modules/reorder", reorderHandler.HandleModules)
-
-		// Сортировка уроков внутри модуля: PUT /modules/:id/lessons/reorder
-		// ВАЖНО: Используем тот же параметр :id, что и выше для модулей, чтобы не было конфликта
 		protectedApi.PUT("/modules/:id/lessons/reorder", reorderHandler.HandleLessons)
 
-		// === Уроки ===
-		// Создаем урок
+		// Уроки
 		protectedApi.POST("/lessons", createLessonHandler.Handle)
-
-		// Обновляем/Удаляем урок по ID
 		protectedApi.PUT("/lessons/:id", updateLessonHandler.Handle)
 		protectedApi.DELETE("/lessons/:id", deleteLessonHandler.Handle)
 
-		// Прогресс и взаимодействие
+		// Прогресс и отзывы
 		protectedApi.POST("/progress/lessons/:id/mark", markProgressHandler.Handle)
 		protectedApi.POST("/reviews", createReviewHandler.Handle)
 		protectedApi.POST("/reviews/:id/approve", approveReviewHandler.Handle)
 		protectedApi.GET("/reviews/admin/pending", pendingReviewHandler.Handle)
 		protectedApi.DELETE("/reviews/:id", rejectReviewHandler.Handle)
+
+		// === ПЛАТЕЖИ ===
+		protectedApi.POST("/payments", createPaymentHandler.Handle)
+		protectedApi.GET("/payments", listPaymentHandler.Handle)
+		protectedApi.POST("/payments/:payment_id/confirm", confirmPaymentHandler.Handle)
+
 	}
 
 	// Запуск сервера

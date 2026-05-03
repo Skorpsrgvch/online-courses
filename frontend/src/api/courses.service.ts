@@ -9,7 +9,8 @@ import type {
   FullCourseModule,
   FullCourseLesson,
   CreateLessonDto,
-  UpdateFullCourseDto
+  UpdateFullCourseDto, 
+  PaymentResponse
 } from './types';
 
 // --- Мапперы (Преобразование данных с бэкенда) ---
@@ -172,8 +173,12 @@ export const coursesService = {
     await apiClient.post(`/progress/lessons/${lessonId}/mark`);
   },
 
-  purchaseCourse: async (courseId: number) => {
-    const response = await apiClient.post(`/courses/${courseId}/purchase`);
+  createPayment: async (courseId: number, returnUrl: string): Promise<PaymentResponse> => {
+    const response = await apiClient.post<PaymentResponse>('/payments', {
+      course_id: courseId,
+      return_url: returnUrl,
+      // amount, currency и т.д. если нужно
+    });
     return response.data;
   },
 };

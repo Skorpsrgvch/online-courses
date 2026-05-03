@@ -37,6 +37,9 @@ function processQueue(error: unknown | null) {
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = getAccessToken();
+
+     console.log('[Axios] Token present:', !!token);
+     
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

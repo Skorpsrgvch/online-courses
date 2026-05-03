@@ -15,7 +15,7 @@ import LearnPage from './pages/Course/LearnPage';
 import AllCoursesPage from './pages/Course/AllCoursesPage';
 import AdminPage from './pages/Admin/AdminPage';
 import CourseFormPage from './pages/Admin/CourseFormPage';
-
+import PaymentSuccessPage from './pages/Course/PaymentSuccessPage';
 
 
 // Компонент для перенаправления на главную (должен быть объявлен ДО использования)
@@ -84,6 +84,16 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+      {
+        path: '/course/:id/payment-success',
+        element: (
+          <ProtectedRoute allowedRoles={['admin']}>
+            <PaymentSuccessPage />
+          </ProtectedRoute>
+        ),
+      },
+
+      
       { path: '*', element: <NavigateToHome /> },
     ],
   },

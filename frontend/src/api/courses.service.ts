@@ -46,6 +46,7 @@ const mapLesson = (data: any): FullCourseLesson => ({
   video_embed_id: data.video_embed_id,
   private_key: data.private_key,
   order: data.order,
+  is_completed: data.is_completed,
 });
 
 const mapModule = (data: any): FullCourseModule => ({

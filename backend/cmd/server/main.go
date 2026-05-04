@@ -127,7 +127,7 @@ func main() {
 	// Курсы
 	createCourseUC, _ := courseCreate.NewUsecase(courseRepo)
 	createWithModulesUC, _ := createwithmodules.NewUsecase(courseTxRepo)
-	getFullCourseUC, _ := courseGetFull.NewUsecase(courseRepo, moduleRepo, lessonRepo, purchaseRepo)
+	getFullCourseUC, _ := courseGetFull.NewUsecase(courseRepo, moduleRepo, lessonRepo, purchaseRepo, progressRepo)
 	updateCourseUC, err := courseUpdate.NewUsecase(courseRepo)
 	if err != nil {
 		log.Fatalf("Failed to create update course usecase: %v", err)

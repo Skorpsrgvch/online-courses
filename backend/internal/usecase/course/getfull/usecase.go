@@ -5,7 +5,7 @@ import (
 	"errors"
 )
 
-func NewUsecase(courseReader CourseReader, moduleReader ModuleReader, lessonReader LessonReader, purchaseChecker PurchaseChecker) (*Usecase, error) {
+func NewUsecase(courseReader CourseReader, moduleReader ModuleReader, lessonReader LessonReader, purchaseChecker PurchaseChecker, pr ProgressReader) (*Usecase, error) {
 	if courseReader == nil || moduleReader == nil || lessonReader == nil || purchaseChecker == nil {
 		return nil, errors.New("all dependencies required")
 	}
@@ -14,17 +14,16 @@ func NewUsecase(courseReader CourseReader, moduleReader ModuleReader, lessonRead
 		moduleReader:    moduleReader,
 		lessonReader:    lessonReader,
 		purchaseChecker: purchaseChecker,
+		progressReader:  pr,
 	}, nil
 }
 
 func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
-	// 1. Получаем курс (новые поля уже будут в структуре course)
 	course, err := u.courseReader.GetByID(ctx, input.CourseID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. Определяем права доступа
 	hasFullAccess := false
 
 	if course.IsPublic {
@@ -41,7 +40,6 @@ func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
 		}
 	}
 
-	// 3. Получаем модули и уроки
 	dbModules, err := u.moduleReader.GetByCourseID(ctx, course.ID)
 	if err != nil {
 		return nil, err
@@ -66,10 +64,14 @@ func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
 				Order:       l.Order,
 			}
 
-			// Скрываем видео, если нет доступа
 			if hasFullAccess {
 				lessonOut.VideoEmbedID = l.VideoEmbedID
 				lessonOut.PrivateKey = l.PrivateKey
+
+				if input.UserID > 0 {
+					isCompleted, _ := u.progressReader.IsLessonCompleted(ctx, input.UserID, l.ID)
+					lessonOut.IsCompleted = isCompleted
+				}
 			} else {
 				lessonOut.VideoEmbedID = ""
 				lessonOut.PrivateKey = nil
@@ -87,9 +89,18 @@ func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
 		})
 	}
 
+	progressPercent := 0
+	if input.UserID > 0 && (hasFullAccess || course.IsPublic) {
+		completed, total, err := u.progressReader.GetCourseProgress(ctx, input.UserID, course.ID)
+		if err == nil && total > 0 {
+			progressPercent = int(float64(completed) / float64(total) * 100)
+		}
+	}
+
 	return &Output{
-		Course:      course,
-		Modules:     modulesOut,
-		IsPurchased: hasFullAccess,
+		Course:          course,
+		Modules:         modulesOut,
+		IsPurchased:     hasFullAccess,
+		ProgressPercent: progressPercent,
 	}, nil
 }

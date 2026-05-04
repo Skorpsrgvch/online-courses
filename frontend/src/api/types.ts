@@ -6,7 +6,6 @@ export interface User {
   created_at?: string;
 }
 
-
 export interface BonusItem {
   title: string;
   description: string;
@@ -39,17 +38,12 @@ export interface Course {
   author_id: number;
   is_active: boolean;
   cover_image_url?: string;
-  
-  // Старые поля
   contraindications?: string; 
   recommendations?: string;     
   bonuses?: BonusItem[];     
-  
-  // НОВЫЕ ПОЛЯ
-  target_audience?: string;   // "Курс для вас, если"
-  course_basis?: string;      // "Курс включает в себя"
-  class_basis?: string;       // "Основа занятий"
-
+  target_audience?: string;
+  course_basis?: string;
+  class_basis?: string;
   modules?: LessonGroup[];
   is_purchased?: boolean;
   progress?: number;
@@ -113,13 +107,9 @@ export interface CreateCourseDto {
   is_public: boolean;
   price: number;
   cover_image_url?: string;
-  
-  // Старые поля
   contraindications?: string;
   recommendations?: string;
   bonuses?: BonusItem[];
-
-  // НОВЫЕ ПОЛЯ
   target_audience?: string;
   course_basis?: string;
   class_basis?: string;
@@ -148,6 +138,7 @@ export interface FullCourseLesson {
   video_embed_id: string;
   private_key?: string | null;
   order: number;
+  is_completed: boolean; // Добавлено
 }
 
 export interface FullCourseModule {
@@ -161,13 +152,13 @@ export interface FullCourseModule {
 export interface CourseFullResponse {
   course: Course;
   modules: FullCourseModule[];
+  is_purchased?: boolean;
+  progress_percent?: number;
 }
-
 
 export interface UpdateFullCourseDto extends CreateCourseDto {
   is_active: boolean;
 }
-
 
 export interface UpdateCourseStatusDto {
   is_active: boolean;

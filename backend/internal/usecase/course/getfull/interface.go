@@ -8,8 +8,8 @@ import (
 
 type Input struct {
 	CourseID int
-	UserID   int    // 0 — если неавторизован
-	Role     string // "admin", "user"
+	UserID   int
+	Role     string
 }
 
 type LessonOutput struct {
@@ -20,6 +20,7 @@ type LessonOutput struct {
 	VideoEmbedID string  `json:"video_embed_id"`
 	PrivateKey   *string `json:"private_key"`
 	Order        int     `json:"order"`
+	IsCompleted  bool    `json:"is_completed"`
 }
 
 type ModuleOutput struct {
@@ -31,9 +32,10 @@ type ModuleOutput struct {
 }
 
 type Output struct {
-	Course      *domain.Course `json:"course"`
-	Modules     []ModuleOutput `json:"modules"`
-	IsPurchased bool           `json:"is_purchased"`
+	Course          *domain.Course `json:"course"`
+	Modules         []ModuleOutput `json:"modules"`
+	IsPurchased     bool           `json:"is_purchased"`
+	ProgressPercent int            `json:"progress_percent"`
 }
 
 type Usecase struct {
@@ -41,6 +43,7 @@ type Usecase struct {
 	moduleReader    ModuleReader
 	lessonReader    LessonReader
 	purchaseChecker PurchaseChecker
+	progressReader  ProgressReader
 }
 
 type CourseReader interface {
@@ -57,4 +60,9 @@ type LessonReader interface {
 
 type PurchaseChecker interface {
 	HasPurchased(ctx context.Context, userID, courseID int) (bool, error)
+}
+
+type ProgressReader interface {
+	GetCourseProgress(ctx context.Context, userID, courseID int) (completed int, total int, err error)
+	IsLessonCompleted(ctx context.Context, userID, lessonID int) (bool, error)
 }

@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"net/http"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -97,48 +97,47 @@ func ParseToken(tokenString string) (*Claims, error) {
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
+
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "unauthorized: missing or malformed token",
-			})
+			c.Next()
 			return
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		claims, err := ParseToken(tokenString)
+
 		if err != nil {
-			// Добавьте лог для отладки, если нужно
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "unauthorized: invalid token",
-			})
+			log.Printf("Invalid token: %v", err)
+			c.Next()
 			return
 		}
 
+		// Если токен валиден — кладем данные в контекст
 		c.Set(UserIDKey, claims.UserID)
 		c.Set(RoleKey, claims.Role)
+		c.Set(EmailKey, claims.Email)
+		c.Set(NameKey, claims.Name)
 
 		c.Next()
 	}
 }
 
-// RequireAdmin проверяет что роль = admin
 func RequireAdmin(c *gin.Context) bool {
 	role, exists := c.Get(RoleKey)
-	return exists && role == "admin"
+	if !exists {
+		return false
+	}
+	return role == "admin"
 }
 
-// GetUserID извлекает ID пользователя из контекста.
-// Возвращает 0, если пользователь не авторизован или ключ отсутствует.
 func GetUserID(c *gin.Context) int {
 	val, exists := c.Get(UserIDKey)
 	if !exists {
 		return 0
 	}
-
 	userID, ok := val.(int)
 	if !ok {
 		return 0
 	}
-
 	return userID
 }

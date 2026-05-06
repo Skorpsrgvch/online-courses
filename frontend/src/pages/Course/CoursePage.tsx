@@ -10,7 +10,7 @@ const CoursePage = () => {
   const { id } = useParams<{ id: string }>();
   const courseId = Number(id);
   const navigate = useNavigate();
-  const location = useLocation(); // Для определения, вернулись ли мы с оплаты
+  const location = useLocation();
   const { user, isAuthenticated } = useAuth();
 
   const [courseData, setCourseData] = useState<CourseFullResponse | null>(null);
@@ -20,20 +20,19 @@ const CoursePage = () => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Функция загрузки данных
-  const loadData = async (forceCheckPurchase = false) => {
+  const loadData = async () => {
     if (!courseId) return;
 
     setIsLoading(true);
     setError(null);
     try {
-      
-      const courseRes = await coursesService.getCourseFull(courseId);
-      
-      const reviewsData = await reviewsService.getCourseReviews(courseId).catch(() => []);
+      const [courseRes, reviewsData] = await Promise.all([
+        coursesService.getCourseFull(courseId),
+        reviewsService.getCourseReviews(courseId).catch(() => []),
+      ]);
 
       setCourseData(courseRes);
       setReviews(reviewsData);
-      
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Не удалось загрузить курс');
@@ -43,54 +42,44 @@ const CoursePage = () => {
   };
 
   useEffect(() => {
-    const loadData = async () => {
-      if (!courseId) return;
-
-      setIsLoading(true);
-      setError(null);
-      try {
-        const [courseRes, reviewsData] = await Promise.all([
-          coursesService.getCourseFull(courseId),
-          reviewsService.getCourseReviews(courseId).catch(() => []),
-        ]);
-
-        setCourseData(courseRes);
-        setReviews(reviewsData);
-      } catch (err: any) {
-        console.error(err);
-        setError(err.message || 'Не удалось загрузить курс');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     loadData();
   }, [courseId]);
 
-
+  // Эффект для обработки хэша и прокрутки
   useEffect(() => {
-
-    if (location.pathname.includes('/payment-success')) {
-
+    if (!isLoading && courseData) {
+      const hash = location.hash;
+      
+      // Небольшая задержка, чтобы DOM успел отрендериться
       const timer = setTimeout(() => {
-
-        const refreshData = async () => {
-          try {
-            const courseRes = await coursesService.getCourseFull(courseId);
-            setCourseData(courseRes);
-            
-
-          } catch (err) {
-            console.error("Failed to refresh course data after payment", err);
+        if (hash) {
+          const element = document.querySelector(hash);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
-        };
-        
-        refreshData();
-      }, 1000); 
+        } else {
+          // Если хэша нет, прокручиваем вверх
+          window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        }
+      }, 100);
 
       return () => clearTimeout(timer);
     }
-  }, [location.pathname, courseId, navigate]);
+  }, [location, isLoading, courseData]);
+
+  // Эффект для обновления данных после оплаты
+  useEffect(() => {
+    if (location.pathname.includes('/payment-success')) {
+      const timer = setTimeout(() => {
+        loadData().then(() => {
+            // После обновления данных из-за оплаты, если мы на странице успеха, 
+            // можно убрать хэш пути или просто обновить стейт.
+            // Но главное - данные обновлены.
+        });
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [location.pathname, courseId]);
 
   const handleActionClick = async () => {
     if (isProcessing) return;
@@ -105,10 +94,8 @@ const CoursePage = () => {
     const isPurchased = courseData.course.is_purchased || user?.role === 'admin';
 
     if (isFree || isPurchased) {
-      // Переход к обучению
       navigate(`/course/${courseId}/learn`);
     } else {
-      // Если вдруг статус не обновился, но пользователь утверждает, что купил - можно предложить обновить
       const confirmRefresh = window.confirm('Статус оплаты еще не обновился. Обновить страницу?');
       if (confirmRefresh) {
         window.location.reload();
@@ -116,7 +103,6 @@ const CoursePage = () => {
     }
   };
 
-  // Реализация оплаты
   const handlePurchase = async () => {
     if (isProcessing) return;
     
@@ -130,11 +116,9 @@ const CoursePage = () => {
 
     try {
       const returnUrl = `${window.location.origin}/course/${courseId}/payment-success`;
-      
       const paymentData: PaymentResponse = await coursesService.createPayment(courseId, returnUrl);
 
       if (paymentData.confirmation_url) {
-        // Перенаправление на шлюз ЮKassa
         window.location.href = paymentData.confirmation_url;
       } else {
         throw new Error('Не удалось получить ссылку на оплату');
@@ -175,7 +159,7 @@ const CoursePage = () => {
           <p className="text-gray-600 mb-4">{error || 'Курс не найден'}</p>
           <button
             onClick={() => navigate('/courses')}
-            className="px-6 py-2 bg-rose-500 text-white rounded-2xl! hover:bg-rose-600 transition-colors"
+            className="px-6 py-2 bg-rose-500 text-white rounded-2xl hover:bg-rose-600 transition-colors"
           >
             Вернуться в каталог
           </button>
@@ -187,7 +171,6 @@ const CoursePage = () => {
   const renderSplitList = (text: string, variant: 'check' | 'dot' = 'check') => {
     if (!text) return null;
     const items = text.split('|||').map(i => i.trim()).filter(i => i.length > 0);
-
     if (items.length === 0) return null;
 
     return (
@@ -228,7 +211,7 @@ const CoursePage = () => {
       .filter(item => item.length > 0);
 
     return (
-      <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-100 mb-8">
+      <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-100 mb-8!">
         <div className="flex items-center gap-3 mb-6">
           <div className={`p-2 ${type === 'bad' ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'} rounded-full`}>
             <IconSvg />
@@ -255,10 +238,7 @@ const CoursePage = () => {
   };
 
   const { course, modules } = courseData;
-
-
   const isFree = course.price === 0 || course.is_public;
-
   const isPurchased = course.is_purchased || user?.role === 'admin';
 
   const getActionButtonProps = () => {
@@ -314,7 +294,6 @@ const CoursePage = () => {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
                   {modules ? modules.reduce((acc, m) => acc + (m.lessons?.length || 0), 0) : 0} уроков
                 </span>
-                
               </div>
 
               <button
@@ -324,11 +303,9 @@ const CoursePage = () => {
               >
                 {isProcessing ? 'Обработка...' : buttonProps.text}
               </button>
-              
-              
             </div>
 
-            <div className="order-1 lg:order-2 relative rounded-2xl overflow-hidden shadow-2xl aspect-video lg:aspect-square max-h-125 bg-gray-100">
+            <div className="order-1 lg:order-2 relative rounded-2xl! overflow-hidden shadow-2xl aspect-video lg:aspect-square max-h-125 bg-gray-100">
               {course.cover_image_url ? (
                 <img src={course.cover_image_url} alt={course.title} className="w-full h-full object-cover" />
               ) : (
@@ -342,7 +319,7 @@ const CoursePage = () => {
       </div>
 
       <div className="max-w-250 mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
-        {/* Остальные секции (target_audience, course_basis и т.д.) без изменений */}
+        
         {course.target_audience && (
           <section>
             <h2 className="text-3xl font-serif font-bold text-gray-900 mb-8! text-center">Курс для вас, если</h2>
@@ -362,7 +339,7 @@ const CoursePage = () => {
             <h2 className="text-3xl font-serif font-bold text-gray-900 mb-8! text-center">Курс включает в себя</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {course.course_basis.split('|||').filter(i => i.trim()).map((item, idx) => (
-                <div key={idx} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md transition-shadow">
+                <div key={idx} className="bg-white p-6 rounded-2xl! shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md transition-shadow">
                   <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center flex-shrink-0">
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                   </div>
@@ -413,7 +390,7 @@ const CoursePage = () => {
           </section>
         )}
 
-        <section className="pt-8 border-t border-gray-200">
+        <section id="reviews" className="pt-8 border-t border-gray-200 scroll-mt-24">
           <div className="flex items-center gap-3 mb-8">
             <h3 className="text-2xl font-serif font-bold text-gray-900">Отзывы студентов</h3>
           </div>

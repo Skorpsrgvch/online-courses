@@ -1,6 +1,7 @@
 export { authService } from './auth.service';
 export { coursesService } from './courses.service';
 export { reviewsService } from './reviews.service';
+export { servicesService } from './services.service';
 export { userService } from './user.service';
 export { apiClient } from './axiosInstance';
 

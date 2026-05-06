@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"log"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
 )
@@ -108,4 +110,50 @@ func (r *UserRepo) UpdatePassword(ctx context.Context, userID int, passwordHash 
 		passwordHash, userID,
 	)
 	return err
+}
+
+func (r *UserRepo) SearchByEmail(ctx context.Context, query string, limit int) ([]*domain.User, error) {
+	log.Printf("[UserRepo] SearchByEmail called: query='%s', limit=%d", query, limit)
+
+	// Исправлено: name -> full_name
+	sql := `SELECT id, email, full_name, role, created_at FROM users WHERE email ILIKE $1 LIMIT $2`
+
+	searchPattern := "%" + query + "%"
+	log.Printf("[UserRepo] Executing SQL: %s with args: [%s, %d]", sql, searchPattern, limit)
+
+	rows, err := r.db.QueryContext(ctx, sql, searchPattern, limit)
+	if err != nil {
+		log.Printf("[UserRepo] Query execution failed: %v", err)
+		return nil, fmt.Errorf("database query failed: %w", err)
+	}
+	defer rows.Close()
+
+	var users []*domain.User
+	count := 0
+
+	for rows.Next() {
+		u := &domain.User{}
+		var fullName string // Временная переменная для full_name
+
+		// Исправлено: сканируем в fullName вместо u.Name
+		err := rows.Scan(&u.ID, &u.Email, &fullName, &u.Role, &u.CreatedAt)
+		if err != nil {
+			log.Printf("[UserRepo] Scan failed: %v", err)
+			return nil, fmt.Errorf("failed to scan user row: %w", err)
+		}
+
+		// Присваиваем значение в поле Name структуры User (если оно так называется в домене)
+		u.Name = fullName
+
+		users = append(users, u)
+		count++
+	}
+
+	if err = rows.Err(); err != nil {
+		log.Printf("[UserRepo] Rows iteration error: %v", err)
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	log.Printf("[UserRepo] Search completed successfully. Found %d users.", count)
+	return users, nil
 }

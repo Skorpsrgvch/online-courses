@@ -194,3 +194,17 @@ export interface PaymentResponse {
   status: string;           
   expires_at?: string;     
 }
+
+export interface Service {
+  id: number;
+  title: string;
+  description: string;
+  price: number; 
+  duration_minutes: number;
+}
+
+interface UserSearchResult {
+  id: number;
+  email: string;
+  name: string;
+}

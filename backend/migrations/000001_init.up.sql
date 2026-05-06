@@ -36,6 +36,17 @@ CREATE TABLE IF NOT EXISTS modules (
     "order" INTEGER NOT NULL
 );
 
+-- Создание таблицы услуг
+CREATE TABLE IF NOT EXISTS services (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    price INTEGER NOT NULL DEFAULT 0, 
+    duration_minutes INTEGER NOT NULL DEFAULT 60, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Контент (Уроки)
 CREATE TABLE IF NOT EXISTS lessons (
     id SERIAL PRIMARY KEY,

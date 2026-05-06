@@ -38,9 +38,8 @@ func (u *UseCase) Execute(ctx context.Context, input Input) (*Output, error) {
 		return nil, fmt.Errorf("course price is invalid")
 	}
 
-	// 3. Формируем данные для шлюза на основе данных из БД
-	amount := course.Price // Цена в копейках (или рублях, зависит от вашей схемы БД)
-	currency := "RUB"      // Хардкод или поле из курса
+	amount := course.Price
+	currency := "RUB" // Хардкод или поле из курса
 	description := fmt.Sprintf("Оплата курса '%s'", course.Title)
 
 	confirmation := map[string]interface{}{

@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/admin"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/auth"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/course"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/lesson"
@@ -35,6 +36,14 @@ import (
 	"github.com/Skorpsrgvch/online-courses/internal/usecase/payment/create"
 	"github.com/Skorpsrgvch/online-courses/internal/usecase/payment/list"
 
+	serviceCreate "github.com/Skorpsrgvch/online-courses/internal/usecase/service/create"
+	serviceDelete "github.com/Skorpsrgvch/online-courses/internal/usecase/service/delete"
+	serviceGet "github.com/Skorpsrgvch/online-courses/internal/usecase/service/get"
+	serviceList "github.com/Skorpsrgvch/online-courses/internal/usecase/service/list"
+	serviceUpdate "github.com/Skorpsrgvch/online-courses/internal/usecase/service/update"
+
+	serviceHttp "github.com/Skorpsrgvch/online-courses/internal/adapter/http/service"
+
 	lessonCreate "github.com/Skorpsrgvch/online-courses/internal/usecase/lesson/create"
 	lessonDelete "github.com/Skorpsrgvch/online-courses/internal/usecase/lesson/delete"
 	lessonGet "github.com/Skorpsrgvch/online-courses/internal/usecase/lesson/get"
@@ -55,6 +64,9 @@ import (
 	reviewReject "github.com/Skorpsrgvch/online-courses/internal/usecase/review/reject"
 	userCourses "github.com/Skorpsrgvch/online-courses/internal/usecase/user/courses"
 	userProfile "github.com/Skorpsrgvch/online-courses/internal/usecase/user/profile"
+
+	access "github.com/Skorpsrgvch/online-courses/internal/usecase/admin/access"
+	search "github.com/Skorpsrgvch/online-courses/internal/usecase/admin/search"
 
 	"github.com/Skorpsrgvch/online-courses/pkg/db"
 	"github.com/gin-gonic/gin"
@@ -99,8 +111,6 @@ func main() {
 	// Инициализируем каждый репозиторий только один раз
 	userRepo := postgres.NewUserRepo(dbConn)
 
-	// CourseRepo используется и старыми, и новыми юзкейсами.
-	// Убедитесь, что postgres.CourseRepo реализует все необходимые интерфейсы.
 	courseRepo := postgres.NewCourseRepo(dbConn)
 
 	courseTxRepo := postgres.NewCourseTxRepo(dbConn)
@@ -110,6 +120,8 @@ func main() {
 	lessonRepo := postgres.NewLessonRepo(dbConn)
 	progressRepo := postgres.NewProgressRepo(dbConn)
 	reviewRepo := postgres.NewReviewRepo(dbConn)
+
+	serviceRepo := postgres.NewServiceRepo(dbConn)
 
 	// PurchaseRepo используется для проверки покупок и их создания
 	purchaseRepo := postgres.NewPurchaseRepo(dbConn)
@@ -148,6 +160,12 @@ func main() {
 	updateLessonUC, _ := lessonUpdate.NewUsecase(lessonRepo, lessonRepo)
 	deleteLessonUC, _ := lessonDelete.NewUsecase(lessonRepo)
 
+	getServiceUC, _ := serviceGet.NewUsecase(serviceRepo)
+	listServiceUC, _ := serviceList.NewUsecase(serviceRepo)
+	createServiceUC, _ := serviceCreate.NewUsecase(serviceRepo)
+	updateServiceUC, _ := serviceUpdate.NewUsecase(serviceRepo)
+	deleteServiceUC, _ := serviceDelete.NewUsecase(serviceRepo)
+
 	// Прогресс
 	markProgressUC, _ := mark.NewUsecase(progressRepo)
 
@@ -171,6 +189,10 @@ func main() {
 
 	createPaymentUC := create.NewUseCase(paymentRepo, courseRepo, purchaseRepo, paymentGateway)
 
+	searchUsersUC := search.NewUsecase(userRepo)
+
+	accessUS, _ := access.NewUsecase(userRepo, courseRepo, purchaseRepo)
+
 	// === Хендлеры ===
 	// Аутентификация
 	registerHandler := auth.NewRegisterHandler(registerUC)
@@ -189,6 +211,13 @@ func main() {
 	updateFullCourseHandler := course.NewUpdateFullCourseHandler(updateFullCourseUC)
 
 	reorderHandler := course.NewReorderHandler(updateFullCourseUC)
+
+	// === Хендлеры: Услуги ===
+	getServiceHandler := serviceHttp.NewGetByIDHandler(getServiceUC)
+	listServiceHandler := serviceHttp.NewListHandler(listServiceUC)
+	createServiceHandler := serviceHttp.NewCreateHandler(createServiceUC)
+	updateServiceHandler := serviceHttp.NewUpdateHandler(updateServiceUC)
+	deleteServiceHandler := serviceHttp.NewDeleteHandler(deleteServiceUC)
 
 	// Модули
 	createModuleHandler := module.NewCreateHandler(createModuleUC)
@@ -221,6 +250,9 @@ func main() {
 	confirmPaymentHandler := payment.NewConfirmHandler(confirmPaymentUC)
 	callbackPaymentHandler := payment.NewCallbackHandler(callbackPaymentUC)
 	listPaymentHandler := payment.NewListHandler(listPaymentUC)
+
+	searchUsersHandler := admin.NewSearchUsersHandler(searchUsersUC)
+	accessHandler := admin.NewGrantAccessHandler(accessUS)
 
 	// === Роутер ===
 	r := gin.New()
@@ -256,6 +288,8 @@ func main() {
 		publicApi.GET("/courses/:id/modules", getModuleHandler.Handle)
 		publicApi.GET("/courses/:id/reviews", listReviewHandler.Handle)
 
+		publicApi.GET("/services", listServiceHandler.Handle)
+
 		publicApi.GET("/payments/:payment_id/confirm", confirmPaymentHandler.HandleGet)
 		publicApi.POST("/payments/callback", callbackPaymentHandler.Handle)
 	}
@@ -270,7 +304,15 @@ func main() {
 		protectedApi.GET("/user/profile", userProfileHandler.Handle)
 		protectedApi.GET("/user/courses", userCoursesHandler.Handle)
 
+		protectedApi.POST("/users/search", searchUsersHandler.Handle)
+		protectedApi.POST("/access", accessHandler.Handle)
+
 		protectedApi.GET("/courses/:id/full", getFullCourseHandler.Handle)
+
+		protectedApi.POST("/services", createServiceHandler.Handle)
+		protectedApi.PUT("/services/:id", updateServiceHandler.Handle)
+		protectedApi.DELETE("/services/:id", deleteServiceHandler.Handle)
+		protectedApi.GET("/services/:id", getServiceHandler.Handle)
 
 		// Управление курсами
 		protectedApi.POST("/courses", createCourseHandler.Handle)

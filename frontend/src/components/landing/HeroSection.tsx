@@ -8,7 +8,7 @@ export const HeroSection: React.FC = () => {
 
 
   return (
-    <section className="relative min-h-[90vh] flex items-center pb-8 md:pb-10 lg:pb-16  py-10 md:py-14 lg:py-22  overflow-hidden pt-20">
+    <section className="relative min-h-[90vh] flex items-center pb-8 md:pb-10 lg:pb-16  py-10 md:py-14 lg:py-16  overflow-hidden pt-20">
 
       {/* Декоративные пятна фона */}
       <div className="absolute top-10 left-10 w-72 h-72 bg-rose-200/30 rounded-full mix-blend-multiply filter blur-3xl animate-blob"></div>
@@ -28,7 +28,7 @@ export const HeroSection: React.FC = () => {
 
               <p className="text-lg md:text-xl text-gray-600 leading-relaxed max-w-xl mx-auto lg:mx-0 font-light">
                 Профессиональная помощь и обучающие материалы по здоровью тазового дна.
-                Верните уверенность в себе без лекарств и операций.
+                
               </p>
             </div>
 

@@ -54,7 +54,7 @@ export const VideoSection: React.FC = () => {
   };
 
   return (
-    <section id="videos" className="py-12 md:py-16 lg:py-24 relative z-10 ">
+    <section id="videos" className="py-10 md:py-14 lg:py-16 relative z-10 ">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Заголовок секции */}

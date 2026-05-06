@@ -4,7 +4,7 @@ import React from 'react';
 
 export const AboutSection: React.FC = () => {
   return (
-    <section id="about" className="py-10 md:py-14 lg:py-20 relative overflow-hidden">
+    <section id="about" className="py-10 md:py-14 lg:py-16 relative overflow-hidden">
       {/* Декоративные фоновые элементы */}
       
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-lavender-100/50 rounded-full mix-blend-multiply filter blur-3xl opacity-60 translate-y-1/2 -translate-x-1/2"></div>

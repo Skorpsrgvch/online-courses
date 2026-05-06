@@ -91,3 +91,12 @@ func (r *PurchaseRepo) GetByUser(ctx context.Context, userID int) ([]domain.Cour
 
 	return purchases, nil
 }
+
+func (r *PurchaseRepo) GrantAccess(ctx context.Context, userID, courseID int) error {
+	_, err := r.db.ExecContext(ctx, `
+        INSERT INTO user_purchases (user_id, course_id) 
+        VALUES ($1, $2)
+        ON CONFLICT (user_id, course_id) DO NOTHING
+    `, userID, courseID)
+	return err
+}

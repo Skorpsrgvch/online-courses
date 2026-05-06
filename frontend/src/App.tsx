@@ -16,6 +16,8 @@ import AllCoursesPage from './pages/Course/AllCoursesPage';
 import AdminPage from './pages/Admin/AdminPage';
 import CourseFormPage from './pages/Admin/CourseFormPage';
 import PaymentSuccessPage from './pages/Course/PaymentSuccessPage';
+import ServicesPage from './pages/Service/ServicesPage';
+import ServicesFormPage from './pages/Admin/ServiceFormPage';
 
 
 // Компонент для перенаправления на главную (должен быть объявлен ДО использования)
@@ -39,6 +41,7 @@ const router = createBrowserRouter([
       { path: 'register', element: <RegisterPage /> },
       { path: 'password-recovery', element: <PasswordRecoveryPage /> },
       { path: 'courses', element: <AllCoursesPage /> },
+      { path: 'services', element: <ServicesPage /> },
       
       {
         path: 'dashboard',
@@ -81,6 +84,22 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={['admin']}>
             <CourseFormPage mode="edit" />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/admin/services/new',
+        element: (
+          <ProtectedRoute allowedRoles={['admin']}>
+            <ServicesFormPage mode="create" />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/admin/services/:id/edit',
+        element: (
+          <ProtectedRoute allowedRoles={['admin']}>
+            <ServicesFormPage mode="edit" />
           </ProtectedRoute>
         ),
       },

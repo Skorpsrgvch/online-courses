@@ -40,11 +40,40 @@ const LearnPage = () => {
         });
         setCompletedLessonsIds(completedIdsFromBackend);
 
+        // ЛОГИКА АВТОМАТИЧЕСКОГО ВЫБОРА УРОКА
         if (data.modules && data.modules.length > 0) {
-          const firstModuleLessons = data.modules[0].lessons;
-          if (firstModuleLessons && firstModuleLessons.length > 0) {
-            setSelectedLesson({ moduleIdx: 0, lessonIdx: 0 });
+          let nextModuleIdx = 0;
+          let nextLessonIdx = 0;
+          let foundUncompleted = false;
+
+          // Ищем первый непройденный урок
+          outerLoop:
+          for (let m = 0; m < data.modules.length; m++) {
+            const lessons = data.modules[m].lessons;
+            if (!lessons || lessons.length === 0) continue;
+
+            for (let l = 0; l < lessons.length; l++) {
+              const lesson = lessons[l];
+              // Если урок не помечен как пройденный бэкендом
+              if (!completedIdsFromBackend.has(lesson.id)) {
+                nextModuleIdx = m;
+                nextLessonIdx = l;
+                foundUncompleted = true;
+                break outerLoop; // Прерываем оба цикла
+              }
+            }
           }
+
+          // Если все уроки пройдены, остаемся на первом уроке (для повторения)
+          // Если нашли непройденный - выбираем его
+          setSelectedLesson({ moduleIdx: nextModuleIdx, lessonIdx: nextLessonIdx });
+          
+          // Раскрываем модуль, в котором находится выбранный урок
+          setExpandedModules(prev => {
+            const next = new Set(prev);
+            next.add(nextModuleIdx);
+            return next;
+          });
         }
       } catch (err) {
         console.error('Ошибка загрузки:', err);
@@ -81,7 +110,6 @@ const LearnPage = () => {
     return 'text-red-600 bg-red-500';
   };
 
-  // Функция для правильного склонения слов
   const declension = (number: number, titles: [string, string, string]) => {
     const cases = [2, 0, 1, 1, 1, 2];
     return titles[(number % 100 > 4 && number % 100 < 20) ? 2 : cases[(number % 10 < 5) ? number % 10 : 5]];
@@ -464,7 +492,7 @@ const LearnPage = () => {
                            Урок {selectedLesson ? selectedLesson.lessonIdx + 1 : 0}
                          </span>
                          {completedLessonsIds.has(currentLesson.id) && (
-                           <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-2xl flex items-center gap-1">
+                           <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-2xl! flex items-center gap-1">
                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
                              Пройден
                            </span>
@@ -481,7 +509,7 @@ const LearnPage = () => {
                     <button
                       onClick={markAsComplete}
                       disabled={completedLessonsIds.has(currentLesson.id) || isSavingProgress}
-                      className={`px-6 py-3 rounded-2xl font-medium transition-all shadow-md flex items-center gap-2 whitespace-nowrap self-start md:self-center ${
+                      className={`px-6 py-3 rounded-2xl! font-medium transition-all shadow-md flex items-center gap-2 whitespace-nowrap self-start md:self-center ${
                         completedLessonsIds.has(currentLesson.id)
                           ? 'bg-green-100 text-green-700 cursor-default border border-green-200'
                           : 'bg-green-600 hover:bg-green-700 text-white hover:shadow-lg hover:-translate-y-0.5'
@@ -526,7 +554,7 @@ const LearnPage = () => {
                     {!isFirstLessonOfCourse ? (
                       <button
                         onClick={handlePrevAction}
-                        className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 rounded-2xl font-medium transition-all shadow-sm hover:shadow flex items-center gap-2 group"
+                        className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 rounded-2xl! font-medium transition-all shadow-sm hover:shadow flex items-center gap-2 group"
                       >
                         <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17l-5-5m0 0l5-5m-5 5h12" />
@@ -540,7 +568,7 @@ const LearnPage = () => {
                     {!isLastLessonOfCourse ? (
                       <button
                         onClick={handleNextAction}
-                        className="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl font-medium transition-colors shadow-md hover:shadow-lg hover:-translate-y-0.5 flex items-center gap-2"
+                        className="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl! font-medium transition-colors shadow-md hover:shadow-lg hover:-translate-y-0.5 flex items-center gap-2"
                       >
                         <span className="hidden sm:inline">Следующий урок</span>
                         <span className="sm:hidden">Далее</span>

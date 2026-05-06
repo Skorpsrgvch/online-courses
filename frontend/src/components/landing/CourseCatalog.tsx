@@ -38,7 +38,7 @@ const CourseCatalog: React.FC = () => {
 
   if (loading) {
     return (
-      <section id="courses" className="py-20 relative z-10 bg-white">
+      <section id="courses" className="py-20 relative z-10">
         <div className="max-w-7xl mx-auto px-4 text-center">
           <div className="inline-block w-10 h-10 border-4 border-rose-200 border-t-rose-500 rounded-full animate-spin"></div>
           <p className="mt-4 text-gray-500">Загрузка программ...</p>
@@ -49,7 +49,7 @@ const CourseCatalog: React.FC = () => {
 
   if (error) {
     return (
-      <section id="courses" className="py-20 relative z-10 bg-white">
+      <section id="courses" className="py-20 relative z-10 ">
         <div className="max-w-7xl mx-auto px-4 text-center text-red-500 bg-red-50 p-6 rounded-xl">
           <p>{error}</p>
           <button onClick={() => window.location.reload()} className="mt-4 text-sm underline hover:text-red-700">
@@ -61,7 +61,7 @@ const CourseCatalog: React.FC = () => {
   }
 
   return (
-    <section id="courses" className="py-20 relative z-10 bg-white">
+    <section id="courses" className="py-10 md:py-14 lg:py-16 relative z-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Заголовок секции */}
@@ -71,7 +71,6 @@ const CourseCatalog: React.FC = () => {
           </h2>
           <p className="text-base text-gray-600 leading-relaxed">
             Выберите направление, которое поможет вам вернуть уверенность и здоровье. 
-            Каждая программа основана на доказательной медицине.
           </p>
         </div>
 

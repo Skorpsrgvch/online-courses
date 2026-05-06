@@ -12,7 +12,7 @@ var (
 	ErrCourseNotPurchased  = errors.New("course not purchased")
 	ErrInvalidCredentials  = errors.New("invalid email or password")
 	ErrModuleNotFound      = errors.New("module not found")
-
-	ErrInvalidInput = errors.New("invalid input data")
-	ErrInvalidID    = errors.New("invalid ID format")
+	ErrServiceNotFound     = errors.New("service not found")
+	ErrInvalidInput        = errors.New("invalid input data")
+	ErrInvalidID           = errors.New("invalid ID format")
 )

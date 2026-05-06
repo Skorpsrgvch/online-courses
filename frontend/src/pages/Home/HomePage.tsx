@@ -28,8 +28,6 @@ const HomePage = () => {
 
       <VideoSection />
 
-      
-
     </div>
   );
 };

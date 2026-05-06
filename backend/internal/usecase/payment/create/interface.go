@@ -45,5 +45,5 @@ type UseCase struct {
 	paymentRepo     PaymentRepository
 	courseGetter    CourseRepository
 	purchaseChecker PurchaseChecker
-	paymentGateway  PaymentGateway // <-- Добавлено это поле
+	paymentGateway  PaymentGateway
 }

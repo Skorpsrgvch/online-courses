@@ -37,7 +37,7 @@ func (u *Usecase) Execute(ctx context.Context, input Input) error {
 
 	// Проверяем существование пользователя
 	log.Printf("[DEBUG] Checking user existence: ID=%d", input.UserID)
-	if _, err := u.userFinder.GetByID(ctx, input.UserID); err != nil {
+	if _, err := u.userFinder.GetUserByID(ctx, input.UserID); err != nil {
 		log.Printf("[ERROR] User not found: %v", err)
 		return err
 	}

@@ -39,7 +39,7 @@ const AdminPage = () => {
       setError(null);
       try {
         const [coursesData, reviewsData, servicesData] = await Promise.all([
-          coursesService.getAllCoursesAdmin(), 
+          coursesService.getAllCoursesAdmin(),
           reviewsService.getPendingReviews(),
           servicesService.getAll(),
         ]);
@@ -138,9 +138,9 @@ const AdminPage = () => {
       setSearchResults(response.data);
     } catch (err: any) {
       console.error(err);
-      setAccessMessage({ 
-        type: 'error', 
-        text: err.response?.data?.error || 'Ошибка при поиске пользователя. Проверьте консоль.' 
+      setAccessMessage({
+        type: 'error',
+        text: err.response?.data?.error || 'Ошибка при поиске пользователя. Проверьте консоль.'
       });
     } finally {
       setIsSearching(false);
@@ -159,12 +159,12 @@ const AdminPage = () => {
         user_id: selectedUser.id,
         course_id: Number(selectedCourseId)
       });
-      
-      setAccessMessage({ 
-        type: 'success', 
-        text: `Доступ к курсу успешно предоставлен пользователю ${selectedUser.email}` 
+
+      setAccessMessage({
+        type: 'success',
+        text: `Доступ к курсу успешно предоставлен пользователю ${selectedUser.email}`
       });
-      
+
       // Сброс формы
       setSelectedUser(null);
       setSelectedCourseId('');
@@ -271,7 +271,7 @@ const AdminPage = () => {
           <div>
             <h2 className="text-lg font-semibold text-gray-800 mb-4">Архив скрытых курсов</h2>
             {hiddenCourses.length === 0 ? (
-              <EmptyState onCreate={() => {}} icon="🗄️" title="Нет скрытых курсов" subtitle="Все курсы активны и видны пользователям" btnText={undefined} />
+              <EmptyState onCreate={() => { }} icon="🗄️" title="Нет скрытых курсов" subtitle="Все курсы активны и видны пользователям" btnText={undefined} />
             ) : (
               <div className="space-y-4">
                 {hiddenCourses.map((course) => (
@@ -303,7 +303,7 @@ const AdminPage = () => {
                         <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-blue-50 text-blue-700 border border-blue-100">
                           {service.price} ₽
                         </span>
-                        {service.duration_minutes && service.duration_minutes > 0 &&(
+                        {service.duration_minutes && service.duration_minutes > 0 && (
                           <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-gray-50 text-gray-600 border border-gray-100">
                             {service.duration_minutes} мин
                           </span>
@@ -333,13 +333,20 @@ const AdminPage = () => {
           <div>
             <h2 className="text-lg font-semibold text-gray-800 mb-4">Ожидают модерации</h2>
             {pendingReviews.length === 0 ? (
-              <EmptyState onCreate={() => {}} icon="✅" title="Всё проверено" subtitle="Нет отзывов, ожидающих модерации" btnText={undefined} />
+              <EmptyState onCreate={() => { }} icon="✅" title="Всё проверено" subtitle="Нет отзывов, ожидающих модерации" btnText={undefined} />
             ) : (
               <div className="space-y-4">
                 {pendingReviews.map((review) => (
                   <div key={review.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
                     <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                       <div className="flex-1 w-full">
+                        {/* Добавлен блок с названием курса */}
+                        <div className="mb-2">
+                          <span className="inline-block px-2 py-1 bg-rose-50 text-rose-600 text-xs font-bold rounded-md border border-rose-100">
+                            Курс: {review.course_title}
+                          </span>
+                        </div>
+
                         <div className="flex items-center gap-2 mb-2">
                           <div className="flex gap-0.5 text-yellow-400">
                             {[1, 2, 3, 4, 5].map((star) => (
@@ -376,11 +383,10 @@ const AdminPage = () => {
             </div>
 
             {accessMessage && (
-              <div className={`mb-6 p-4 rounded-lg border flex items-center gap-3 ${
-                accessMessage.type === 'success' 
-                  ? 'bg-green-50 border-green-200 text-green-800' 
+              <div className={`mb-6 p-4 rounded-lg border flex items-center gap-3 ${accessMessage.type === 'success'
+                  ? 'bg-green-50 border-green-200 text-green-800'
                   : 'bg-red-50 border-red-200 text-red-800'
-              }`}>
+                }`}>
                 <span>{accessMessage.type === 'success' ? '✅' : '⚠️'}</span>
                 <span className="flex-1">{accessMessage.text}</span>
                 <button onClick={() => setAccessMessage(null)} className="ml-auto opacity-70 hover:opacity-100">✕</button>
@@ -388,7 +394,7 @@ const AdminPage = () => {
             )}
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 md:p-8 space-y-6">
-              
+
               {/* Шаг 1: Поиск */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">

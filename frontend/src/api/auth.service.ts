@@ -14,36 +14,35 @@ export interface RegisterDto {
 
 export interface TokensResponse {
   access_token: string;
-  refresh_token: string;
-  expires_in: number;
+  expires_in?: number;
 }
 
 const ACCESS_TOKEN_KEY = 'access_token';
-const REFRESH_TOKEN_KEY = 'refresh_token';
 
 export function getAccessToken(): string | null {
   return localStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
-export function getRefreshToken(): string | null {
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
-}
 
-function storeTokens(access: string, refresh: string) {
+function storeTokens(access: string) {
   localStorage.setItem(ACCESS_TOKEN_KEY, access);
-  localStorage.setItem(REFRESH_TOKEN_KEY, refresh);
+
 }
 
 function clearTokens() {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
 export const authService = {
   login: async (data: LoginDto): Promise<AuthResponse & TokensResponse> => {
     const response = await apiClient.post<AuthResponse & TokensResponse>('/auth/login', data);
-    const { access_token, refresh_token } = response.data;
-    storeTokens(access_token, refresh_token);
+    const { access_token } = response.data;
+    
+    if (!access_token) {
+        throw new Error('No access token in response');
+    }
+
+    storeTokens(access_token);
     return response.data;
   },
 
@@ -52,12 +51,23 @@ export const authService = {
   },
 
   logout: async (): Promise<void> => {
-    clearTokens();
+    try {
+      // Отправляем запрос на бэкенд, чтобы он удалил токен из БД и очистил куку
+      await apiClient.post('/auth/logout'); 
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Игнорируем ошибку сети, все равно чистим локальное состояние
+    } finally {
+      // Всегда очищаем локальные токены и перенаправляем
+      clearTokens();
+      window.location.href = '/'; // Или '/login'
+    }
   },
 
   getMe: async (): Promise<AuthResponse> => {
-    // rawClient без интерцепторов — чтобы 401 не вызывал redirect
     const token = getAccessToken();
+    if (!token) throw new Error('No access token');
+    
     const response = await rawClient.get<AuthResponse>('/auth/me', {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -65,13 +75,17 @@ export const authService = {
   },
 
   refreshToken: async (): Promise<TokensResponse> => {
-    const refresh = getRefreshToken();
-    if (!refresh) throw new Error('No refresh token');
+
     const response = await rawClient.post<TokensResponse>('/auth/refresh', null, {
-      headers: { Authorization: `Bearer ${refresh}` },
+
     });
-    const { access_token, refresh_token } = response.data;
-    storeTokens(access_token, refresh_token);
+    
+    const { access_token } = response.data;
+    if (!access_token) {
+        throw new Error('No access token in refresh response');
+    }
+
+    storeTokens(access_token);
     return response.data;
   },
 

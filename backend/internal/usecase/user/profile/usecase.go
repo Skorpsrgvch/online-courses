@@ -20,8 +20,9 @@ type Output struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// Интерфейс должен использовать GetUserByID
 type UserReader interface {
-	GetByID(ctx context.Context, id int) (*domain.User, error)
+	GetUserByID(ctx context.Context, id int) (*domain.User, error)
 }
 
 type Usecase struct {
@@ -36,7 +37,11 @@ func NewUsecase(userReader UserReader) (*Usecase, error) {
 }
 
 func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
-	user, err := u.userReader.GetByID(ctx, input.UserID)
+	if input.UserID <= 0 {
+		return nil, errors.New("некорректный ID пользователя")
+	}
+
+	user, err := u.userReader.GetUserByID(ctx, input.UserID)
 	if err != nil {
 		return nil, err
 	}

@@ -2,48 +2,47 @@ package auth
 
 import (
 	"net/http"
-	"strings"
+	"time"
 
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
-	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/middleware"
+	"github.com/Skorpsrgvch/online-courses/internal/usecase/auth/refresh"
 	"github.com/gin-gonic/gin"
 )
 
-type RefreshHandler struct{}
+type RefreshHandler struct {
+	usecase *refresh.Usecase
+}
 
-func NewRefreshHandler() *RefreshHandler {
-	return &RefreshHandler{}
+// Конструктор теперь принимает usecase
+func NewRefreshHandler(usecase *refresh.Usecase) *RefreshHandler {
+	return &RefreshHandler{usecase: usecase}
 }
 
 func (h *RefreshHandler) Handle(c *gin.Context) {
-	authHeader := c.GetHeader("Authorization")
-	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-		common.HandleError(c, common.HttpError("missing refresh token", http.StatusUnauthorized))
-		return
-	}
-
-	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-	claims, err := middleware.ParseToken(tokenString)
+	cookie, err := c.Cookie("refresh_token")
 	if err != nil {
-		common.HandleError(c, common.HttpError("invalid refresh token", http.StatusUnauthorized))
+		common.HandleError(c, common.HttpError("refresh token not found in cookie", http.StatusUnauthorized))
 		return
 	}
 
-	// Генерируем новую пару токенов
-	accessToken, refreshToken, err := middleware.GenerateToken(
-		claims.UserID,
-		claims.Email,
-		claims.Name,
-		claims.Role,
+	output, err := h.usecase.Execute(c.Request.Context(), cookie)
+	if err != nil {
+		common.HandleError(c, common.HttpError(err.Error(), http.StatusUnauthorized))
+		return
+	}
+
+	c.SetCookie(
+		"refresh_token",
+		output.RefreshToken,
+		int(7*24*time.Hour.Seconds()), // Срок жизни куки
+		"/",
+		"",
+		false, // ПОМЕНЯТЬ ПОТОМ
+		true,  // HttpOnly
 	)
-	if err != nil {
-		common.HandleError(c, err)
-		return
-	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"access_token":  accessToken,
-		"refresh_token": refreshToken,
-		"expires_in":    900,
+		"access_token": output.AccessToken,
+		"expires_in":   900,
 	})
 }

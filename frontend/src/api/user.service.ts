@@ -28,24 +28,23 @@ export const userService = {
     return response.data;
   },
 
-  /**
-   * Обновление профиля (пока заглушка — бэкенд не реализован)
-   */
-  updateProfile: async (_data: UpdateProfileDto): Promise<UserProfile> => {
-    throw new Error('Обновление профиля пока не реализовано');
+  // НОВЫЙ МЕТОД
+  updateProfile: async (data: UpdateProfileDto): Promise<{ message: string }> => {
+    const response = await apiClient.put('/user/profile', data);
+    return response.data;
+  },
+  
+  // Запрос кода (вызывает ваш эндпоинт forgot-password)
+  requestPasswordReset: async (email: string): Promise<void> => {
+    await apiClient.post('/auth/forgot-password', { email });
   },
 
-  /**
-   * Смена пароля (пока заглушка — бэкенд не реализован)
-   */
-  changePassword: async (_data: ChangePasswordDto): Promise<void> => {
-    throw new Error('Смена пароля пока не реализована');
-  },
-
-  /**
-   * Удаление аккаунта (пока заглушка — бэкенд не реализован)
-   */
-  deleteAccount: async (): Promise<void> => {
-    throw new Error('Удаление аккаунта пока не реализовано');
+  // Подтверждение кода и смена пароля (вызывает reset-password)
+  confirmPasswordReset: async (code: string, newPassword: string): Promise<void> => {
+    // Обратите внимание: бэкенд может ожидать поле "code" или "token"
+    await apiClient.post('/auth/reset-password', { 
+      code: code, 
+      new_password: newPassword 
+    });
   },
 };

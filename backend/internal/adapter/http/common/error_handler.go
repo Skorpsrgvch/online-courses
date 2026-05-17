@@ -2,6 +2,7 @@ package common
 
 import (
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
@@ -28,30 +29,47 @@ func BadRequestError(msg string) error {
 
 // HandleError централизованная обработка ошибок
 func HandleError(c *gin.Context, err error) {
+	// 1. Проверяем, является ли ошибка уже готовой HTTP ошибкой (наш кастомный тип)
 	if httpErr, ok := err.(interface{ Status() int }); ok {
 		c.AbortWithStatusJSON(httpErr.Status(), gin.H{"error": err.Error()})
 		return
 	}
 
-	// Сопоставление domain-ошибок
+	// 2. Сопоставление domain-ошибок
 	switch {
 	case errors.Is(err, domain.ErrInvalidCredentials):
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+		// Это самый важный кейс для логина
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Неверный email или пароль"})
+
+	case errors.Is(err, domain.ErrUserNotFound):
+		// На случай если где-то отдельно пробрасывается эта ошибка
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Пользователь не найден"})
+
 	case errors.Is(err, domain.ErrAccessDenied):
-		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied"})
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Доступ закрыт"})
+
 	case errors.Is(err, domain.ErrCourseNotPurchased):
-		c.AbortWithStatusJSON(http.StatusPaymentRequired, gin.H{"error": "course not purchased"})
+		c.AbortWithStatusJSON(http.StatusPaymentRequired, gin.H{"error": "Курс не оплачен"})
+
 	case errors.Is(err, domain.ErrPaymentNotFound):
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "payment not found"})
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Платеж не найден"})
+
 	case errors.Is(err, domain.ErrPaymentAlreadyPaid):
-		c.AbortWithStatusJSON(http.StatusConflict, gin.H{"error": "course already purchased"})
+		c.AbortWithStatusJSON(http.StatusConflict, gin.H{"error": "Курс уже приобретен"})
+
 	case errors.Is(err, domain.ErrPaymentExpired):
-		c.AbortWithStatusJSON(http.StatusGone, gin.H{"error": "payment expired"})
+		c.AbortWithStatusJSON(http.StatusGone, gin.H{"error": "Срок платежа истек"})
+
 	case errors.Is(err, domain.ErrPaymentInvalidStatus):
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid payment status"})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Некорректный статус платежа"})
+
 	case errors.Is(err, domain.ErrPaymentCreationFailed):
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to create payment"})
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Ошибка создания платежа"})
+
 	default:
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		// Логируем неизвестную ошибку для разработчика
+		log.Printf("Unhandled error in handler: %v", err)
+		// Клиенту показываем общую фразу, чтобы не светить детали реализации
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Внутренняя ошибка сервера"})
 	}
 }

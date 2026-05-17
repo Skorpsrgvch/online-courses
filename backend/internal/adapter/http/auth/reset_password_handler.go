@@ -9,7 +9,7 @@ import (
 )
 
 type resetPasswordRequest struct {
-	Token       string `json:"token" binding:"required"`
+	Code        string `json:"code" binding:"required"`
 	NewPassword string `json:"new_password" binding:"required,min=6"`
 }
 
@@ -29,7 +29,7 @@ func (h *ResetPasswordHandler) Handle(c *gin.Context) {
 	}
 
 	input := resetpassword.Input{
-		Token:       req.Token,
+		Code:        req.Code,
 		NewPassword: req.NewPassword,
 	}
 

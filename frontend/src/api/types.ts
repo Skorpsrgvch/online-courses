@@ -65,6 +65,7 @@ export interface Review {
   approved: boolean;
   created_at: string;
   author_name?: string;
+  course_title?: string;
 }
 
 export interface AuthResponse {

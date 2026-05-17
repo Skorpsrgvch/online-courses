@@ -3,6 +3,7 @@ package register
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
 	"golang.org/x/crypto/bcrypt"
@@ -39,6 +40,7 @@ func (u *Usecase) Execute(ctx context.Context, input Input) error {
 	user, err := domain.NewUser(input.Email, input.FullName, input.Role)
 	if err != nil {
 		return err
+
 	}
 
 	// Хэшируем пароль
@@ -47,6 +49,14 @@ func (u *Usecase) Execute(ctx context.Context, input Input) error {
 		return errors.New("failed to hash password")
 	}
 
-	// Сохраняем в БД
-	return u.userCreator.CreateUser(ctx, user, string(passwordHash))
+	err = u.userCreator.CreateUser(ctx, user, string(passwordHash))
+	if err != nil {
+
+		if strings.Contains(err.Error(), "already exists") {
+			return err
+		}
+		return errors.New("failed to register user")
+	}
+
+	return nil
 }

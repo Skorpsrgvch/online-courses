@@ -67,7 +67,7 @@ const LearnPage = () => {
           // Если все уроки пройдены, остаемся на первом уроке (для повторения)
           // Если нашли непройденный - выбираем его
           setSelectedLesson({ moduleIdx: nextModuleIdx, lessonIdx: nextLessonIdx });
-          
+
           // Раскрываем модуль, в котором находится выбранный урок
           setExpandedModules(prev => {
             const next = new Set(prev);
@@ -87,7 +87,7 @@ const LearnPage = () => {
 
   const progressStats = useMemo(() => {
     if (!courseData || !courseData.modules) return { completed: 0, total: 0, percent: 0 };
-    
+
     let total = 0;
     let completed = 0;
 
@@ -103,6 +103,19 @@ const LearnPage = () => {
     const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
     return { completed, total, percent };
   }, [courseData, completedLessonsIds]);
+
+  const getRuTubeUrl = (lesson: FullCourseLesson) => {
+    if (!lesson.video_embed_id) return '';
+
+    // ВНИМАНИЕ: Убран пробел после embed/
+    const base = `https://rutube.ru/video/embed/${lesson.video_embed_id}/`;
+
+    if (lesson.private_key) {
+      return `${base}?p=${lesson.private_key}&quality=auto`;
+    }
+
+    return base;
+  };
 
   const getProgressColor = (percent: number) => {
     if (percent >= 80) return 'text-green-600 bg-green-500';
@@ -170,6 +183,8 @@ const LearnPage = () => {
     }
   };
 
+
+
   const handlePrevAction = () => {
     if (!selectedLesson || !courseData?.modules) return;
     const { moduleIdx, lessonIdx } = selectedLesson;
@@ -234,6 +249,9 @@ const LearnPage = () => {
     ? currentModule.lessons[selectedLesson.lessonIdx]
     : null;
 
+  const hasVideo = !!currentLesson?.video_embed_id;
+  const videoUrl = hasVideo ? getRuTubeUrl(currentLesson) : '';
+
   const progressColorClass = getProgressColor(progressStats.percent);
 
   return (
@@ -242,7 +260,7 @@ const LearnPage = () => {
       {/* === ВЕРХНЯЯ ПАНЕЛЬ === */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm pt-4 pb-4">
         <div className="max-w-[1600px] mx-auto px-3 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
-          
+
           {/* Левая часть */}
           <div className="flex items-center gap-2 flex-shrink-0 min-w-[40px]">
             <button
@@ -270,14 +288,14 @@ const LearnPage = () => {
             <h3 className="text-xs sm:text-sm font-bold text-gray-900 text-center w-full mb-2 leading-tight break-words line-clamp-2">
               {course.title}
             </h3>
-            
+
             {/* Индикатор прогресса с отступом */}
             <div className="w-full flex items-center gap-2 text-xs text-gray-500 mt-1">
               <span className={`whitespace-nowrap font-bold ${progressColorClass.split(' ')[0]}`}>
                 {progressStats.percent}%
               </span>
               <div className="flex-1 h-2 bg-gray-100 rounded-2xl overflow-hidden">
-                <div 
+                <div
                   className={`h-full transition-all duration-500 ease-out rounded-2xl ${progressColorClass.split(' ')[1]}`}
                   style={{ width: `${progressStats.percent}%` }}
                 />
@@ -301,15 +319,15 @@ const LearnPage = () => {
               <div className="p-5 border-b border-gray-100 bg-gray-50">
                 <h2 className="font-bold text-gray-800 text-lg">Программа курса</h2>
                 <div className="flex items-center justify-between mt-1">
-                    <p className="text-xs text-gray-500">
-                        {modules?.length || 0} {declension(modules?.length || 0, ['модуль', 'модуля', 'модулей'])}
-                    </p>
-                    {progressStats.percent === 100 && (
+                  <p className="text-xs text-gray-500">
+                    {modules?.length || 0} {declension(modules?.length || 0, ['модуль', 'модуля', 'модулей'])}
+                  </p>
+                  {progressStats.percent === 100 && (
                     <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded-2xl flex items-center gap-1">
-                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                        Пройден
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                      Пройден
                     </span>
-                    )}
+                  )}
                 </div>
               </div>
 
@@ -318,7 +336,7 @@ const LearnPage = () => {
                   modules.map((mod, modIdx) => {
                     const modKey = mod.id ?? `mod-${modIdx}`;
                     const lessonCount = mod.lessons ? mod.lessons.length : 0;
-                    
+
                     let modCompleted = 0;
                     mod.lessons?.forEach(l => {
                       if (completedLessonsIds.has(l.id)) modCompleted++;
@@ -344,7 +362,7 @@ const LearnPage = () => {
                               {mod.title || 'Без названия'}
                             </p>
                             <p className="text-xs text-gray-500 mt-1">
-                                {lessonCount} {declension(lessonCount, ['урок', 'урока', 'уроков'])}
+                              {lessonCount} {declension(lessonCount, ['урок', 'урока', 'уроков'])}
                             </p>
                           </div>
                           <svg className={`w-4 h-4 text-gray-400 transition-transform ${expandedModules.has(modIdx) ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
@@ -362,10 +380,10 @@ const LearnPage = () => {
                                   key={lesKey}
                                   onClick={() => selectLesson(modIdx, lessonIdx)}
                                   className={`w-full text-left px-5 py-3 pl-9 text-sm transition-all flex items-start gap-3 border-l-4 ${isSelected
-                                      ? 'bg-white border-rose-500 text-rose-700 shadow-sm'
-                                      : isCompleted
-                                        ? 'bg-green-100 border-green-500 text-green-800' 
-                                        : 'border-transparent text-gray-600 hover:bg-gray-100'
+                                    ? 'bg-white border-rose-500 text-rose-700 shadow-sm'
+                                    : isCompleted
+                                      ? 'bg-green-100 border-green-500 text-green-800'
+                                      : 'border-transparent text-gray-600 hover:bg-gray-100'
                                     }`}
                                 >
                                   <span className={`mt-0.5 flex-shrink-0 ${isCompleted ? 'text-green-600' : (isSelected ? 'text-rose-500' : 'text-gray-400')
@@ -406,23 +424,23 @@ const LearnPage = () => {
                 <div className="overflow-y-auto flex-grow pb-20">
                   {modules && modules.map((mod, modIdx) => {
                     const modKey = mod.id ?? `mod-m-${modIdx}`;
-                    
+
                     let modCompletedCount = 0;
                     mod.lessons?.forEach(l => {
-                        if (completedLessonsIds.has(l.id)) modCompletedCount++;
+                      if (completedLessonsIds.has(l.id)) modCompletedCount++;
                     });
                     const isModFullyCompletedMobile = mod.lessons && mod.lessons.length > 0 && modCompletedCount === mod.lessons.length;
 
                     return (
                       <div key={modKey} className="border-b border-gray-100">
-                        <button 
-                            onClick={() => toggleModule(modIdx)} 
-                            className={`w-full text-left px-4 py-3 font-semibold text-sm flex justify-between items-center ${isModFullyCompletedMobile ? 'bg-green-50 text-green-800' : 'bg-gray-50 text-gray-800'}`}
+                        <button
+                          onClick={() => toggleModule(modIdx)}
+                          className={`w-full text-left px-4 py-3 font-semibold text-sm flex justify-between items-center ${isModFullyCompletedMobile ? 'bg-green-50 text-green-800' : 'bg-gray-50 text-gray-800'}`}
                         >
-                            <span className="truncate pr-2">Модуль {modIdx + 1}: {mod.title || ''}</span>
-                            {isModFullyCompletedMobile && (
-                                <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-                            )}
+                          <span className="truncate pr-2">Модуль {modIdx + 1}: {mod.title || ''}</span>
+                          {isModFullyCompletedMobile && (
+                            <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                          )}
                         </button>
                         {expandedModules.has(modIdx) && mod.lessons && (
                           <div className="bg-white">
@@ -434,10 +452,9 @@ const LearnPage = () => {
                                 <button
                                   key={lesKey}
                                   onClick={() => selectLesson(modIdx, lIdx)}
-                                  className={`block w-full text-left px-6 py-3 text-sm border-l-4 ${
-                                    isSelected ? 'border-rose-500 bg-rose-50 text-rose-700 font-bold' :
+                                  className={`block w-full text-left px-6 py-3 text-sm border-l-4 ${isSelected ? 'border-rose-500 bg-rose-50 text-rose-700 font-bold' :
                                     isCompleted ? 'border-green-400 bg-green-50 text-green-800' : 'border-transparent text-gray-600'
-                                  }`}
+                                    }`}
                                 >
                                   <div className="flex items-center gap-2">
                                     {isCompleted && <span className="text-green-600">✓</span>}
@@ -461,20 +478,18 @@ const LearnPage = () => {
             {currentLesson ? (
               <div className="space-y-6 animate-fade-in">
 
-                {/* Видео плеер */}
-                <div className="bg-black rounded-2xl overflow-hidden shadow-xl aspect-video relative group">
-                  {currentLesson.video_embed_id ? (
+                <div className="bg-black rounded-2xl overflow-hidden shadow-xl relative w-full">
+                  {hasVideo ? (
                     <VideoPlayer
-                      url={
-                        currentLesson.private_key
-                          ? `https://rutube.ru/video/embed/${currentLesson.video_embed_id}/?p=${currentLesson.private_key}`
-                          : `https://rutube.ru/video/embed/${currentLesson.video_embed_id}/`
-                      }
-                      onProgress={() => { }}
+                      url={videoUrl}
+                      onProgress={(percent) => {
+                        // Логика сохранения прогресса при просмотре
+                        console.log(`Просмотрено: ${percent}%`);
+                      }}
                     />
                   ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-white bg-gray-900">
-                      <div className="text-center">
+                    <div className="aspect-video flex items-center justify-center text-white bg-gray-900">
+                      <div className="text-center p-4">
                         <div className="text-6xl mb-4 opacity-50">🎥</div>
                         <p className="text-lg font-medium">Видео недоступно</p>
                         <p className="text-sm opacity-70 mt-2">Или урок содержит только текст</p>
@@ -488,15 +503,15 @@ const LearnPage = () => {
                   <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6 pb-6 border-b border-gray-100">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
-                         <span className="px-2 py-1 bg-rose-100 text-rose-700 text-xs font-bold rounded-2xl uppercase">
-                           Урок {selectedLesson ? selectedLesson.lessonIdx + 1 : 0}
-                         </span>
-                         {completedLessonsIds.has(currentLesson.id) && (
-                           <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-2xl! flex items-center gap-1">
-                             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                             Пройден
-                           </span>
-                         )}
+                        <span className="px-2 py-1 bg-rose-100 text-rose-700 text-xs font-bold rounded-2xl uppercase">
+                          Урок {selectedLesson ? selectedLesson.lessonIdx + 1 : 0}
+                        </span>
+                        {completedLessonsIds.has(currentLesson.id) && (
+                          <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-2xl! flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                            Пройден
+                          </span>
+                        )}
                       </div>
                       <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 font-serif mb-2 break-words">
                         {currentLesson.title}
@@ -509,11 +524,10 @@ const LearnPage = () => {
                     <button
                       onClick={markAsComplete}
                       disabled={completedLessonsIds.has(currentLesson.id) || isSavingProgress}
-                      className={`px-6 py-3 rounded-2xl! font-medium transition-all shadow-md flex items-center gap-2 whitespace-nowrap self-start md:self-center ${
-                        completedLessonsIds.has(currentLesson.id)
-                          ? 'bg-green-100 text-green-700 cursor-default border border-green-200'
-                          : 'bg-green-600 hover:bg-green-700 text-white hover:shadow-lg hover:-translate-y-0.5'
-                      } ${isSavingProgress ? 'opacity-70 cursor-wait' : ''}`}
+                      className={`px-6 py-3 rounded-2xl! font-medium transition-all shadow-md flex items-center gap-2 whitespace-nowrap self-start md:self-center ${completedLessonsIds.has(currentLesson.id)
+                        ? 'bg-green-100 text-green-700 cursor-default border border-green-200'
+                        : 'bg-green-600 hover:bg-green-700 text-white hover:shadow-lg hover:-translate-y-0.5'
+                        } ${isSavingProgress ? 'opacity-70 cursor-wait' : ''}`}
                     >
                       {isSavingProgress ? (
                         <>

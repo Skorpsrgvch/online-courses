@@ -4,16 +4,17 @@ import { useAuth } from '../../context/AuthContext';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
-import { useIsMobile } from '../../hooks/useIsMobile'; 
+import { useIsMobile } from '../../hooks/useIsMobile';
+import { authService } from '../../api/auth.service';
 
 export const Header: React.FC = () => {
   const { user, isAuthenticated, logout, login, register } = useAuth();
   const navigate = useNavigate();
-  const isMobile = useIsMobile(); 
-  
+  const isMobile = useIsMobile();
+
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
+
   // Состояния для модальных окон (используем только на десктопе)
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
@@ -30,23 +31,48 @@ export const Header: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const handleLogout = async () => {
-    await logout();
-    window.location.href = '/'; 
-    setIsMobileMenuOpen(false);
+  // Добавляем состояние для ошибок валидации конкретных полей
+  const [validationErrors, setValidationErrors] = useState<{
+    name?: string;
+    email?: string;
+    password?: string;
+  }>({});
+
+  // Функция очистки ошибок валидации при изменении полей
+  const clearFieldError = (field: keyof typeof validationErrors) => {
+    if (validationErrors[field]) {
+      setValidationErrors({ ...validationErrors, [field]: undefined });
+    }
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    e.stopPropagation(); // Добавляем, чтобы событие не уходило выше
-    setIsLoading(true);
+    e.stopPropagation();
+
+    // Сбрасываем ошибки
     setError(null);
+    setValidationErrors({});
+    setIsLoading(true);
+
+    // Простая валидка перед отправкой
+    if (!loginForm.email) {
+      setValidationErrors({ email: 'Введите email' });
+      setIsLoading(false);
+      return;
+    }
+    if (!loginForm.password) {
+      setValidationErrors({ password: 'Введите пароль' });
+      setIsLoading(false);
+      return;
+    }
+
     try {
       await login(loginForm.email, loginForm.password);
       setIsLoginOpen(false);
       setLoginForm({ email: '', password: '' });
-      if (isMobile) navigate('/dashboard'); 
+      if (isMobile) navigate('/dashboard');
     } catch (err: any) {
+      // Если ошибка от сервера (например, неверный пароль)
       setError(err.message || 'Ошибка входа');
     } finally {
       setIsLoading(false);
@@ -56,12 +82,35 @@ export const Header: React.FC = () => {
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    setError(null);
+    setValidationErrors({});
+
+    const newErrors: typeof validationErrors = {};
+
+    if (!registerForm.name || registerForm.name.trim() === '') {
+      newErrors.name = 'Введите имя';
+    }
+    if (!registerForm.email) {
+      newErrors.email = 'Введите email';
+    }
+    if (!registerForm.password) {
+      newErrors.password = 'Введите пароль';
+    } else if (registerForm.password.length < 6) {
+      newErrors.password = 'Пароль должен быть не менее 6 символов';
+    }
     if (!registerForm.agree) {
       setError('Необходимо согласие на обработку данных');
+      setIsLoading(false);
       return;
     }
+
+    if (Object.keys(newErrors).length > 0) {
+      setValidationErrors(newErrors);
+      return;
+    }
+
     setIsLoading(true);
-    setError(null);
     try {
       await register(registerForm.name, registerForm.email, registerForm.password);
       setIsRegisterOpen(false);
@@ -73,6 +122,20 @@ export const Header: React.FC = () => {
       setIsLoading(false);
     }
   };
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+
+      logout();
+
+      navigate('/'); // Или window.location.href = '/'; для полной перезагрузки
+    } catch (err) {
+      console.error("Критическая ошибка при выходе:", err);
+      localStorage.clear();
+      logout();
+      navigate('/');
+    }
+  };
 
 
   const openLogin = () => {
@@ -82,7 +145,7 @@ export const Header: React.FC = () => {
         navigate('/login');
       }
     } else {
-      setIsLoginOpen(true); 
+      setIsLoginOpen(true);
     }
     setIsMobileMenuOpen(false);
   };
@@ -94,37 +157,34 @@ export const Header: React.FC = () => {
         navigate('/register');
       }
     } else {
-      setIsRegisterOpen(true); 
+      setIsRegisterOpen(true);
     }
     setIsMobileMenuOpen(false);
   };
 
-  
+
   const navLinks = [
     { name: 'О специалисте', href: '/#about' },
-    { name: 'Услуги', href: '/#services' },
+    { name: 'Услуги', href: '/services' },
     { name: 'Курсы', href: '/courses' },
-    { name: 'Статьи', href: '/#articles' },
-    { name: 'Видео', href: '/#videos' },
     { name: 'Контакты', href: '/#footer' },
   ];
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-white ${
-        isScrolled ? 'shadow-md py-3' : 'shadow-none py-3'
-      }`}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-white ${isScrolled ? 'shadow-md py-3' : 'shadow-none py-3'
+        }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-12"> 
-          
+        <div className="flex justify-between items-center h-12">
+
           {/* Логотип */}
-          <Link 
-            to="/" 
+          <Link
+            to="/"
             className="group flex items-center gap-3 z-50 relative no-underline"
             style={{ textDecoration: 'none' }}
           >
-            <div 
+            <div
               className="w-10 h-10 bg-linear-to-br from-rose-400 to-rose-600 rounded-full flex items-center justify-center text-white font-serif font-bold text-xl shadow-lg transition-all duration-300"
             >
               W
@@ -141,7 +201,7 @@ export const Header: React.FC = () => {
                 key={link.name}
                 href={link.href}
                 className="relative text-gray-600! hover:text-rose-500! font-medium text-lg transition-colors duration-300 decoration-transparent group"
-                style={{ textDecoration: 'none' }} 
+                style={{ textDecoration: 'none' }}
               >
                 {link.name}
                 <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-rose-500 transition-all duration-300 group-hover:w-full"></span>
@@ -164,34 +224,34 @@ export const Header: React.FC = () => {
                   <span className="text-sm" style={{ textDecoration: 'none' }}>{user?.name || 'Кабинет'}</span>
                 </Link>
                 {user?.role === 'admin' && (
-                  <Link to="/admin" className="px-2 py-1 lg:px-3 lg:py-1.5 bg-gray-800 text-white text-[10px] lg:text-xs rounded-full hover:bg-gray-700 transition-colors whitespace-nowrap" 
-                  style={{ textDecoration: 'none' }} >
+                  <Link to="/admin" className="px-2 py-1 lg:px-3 lg:py-1.5 bg-gray-800 text-white text-[10px] lg:text-xs rounded-full hover:bg-gray-700 transition-colors whitespace-nowrap"
+                    style={{ textDecoration: 'none' }} >
                     Админ-панель
                   </Link>
                 )}
                 <button
-        onClick={handleLogout}
-        className="p-2 text-gray-600 border border-gray-300 rounded-full hover:border-rose-500 hover:text-rose-500 transition-all duration-300 bg-white/50 hover:bg-white"
-        title="Выйти"
-      >
-        <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-        </svg>
-      </button>
+                  onClick={handleLogout}
+                  className="p-2 text-gray-600 border border-gray-300 rounded-full hover:border-rose-500 hover:text-rose-500 transition-all duration-300 bg-white/50 hover:bg-white"
+                  title="Выйти"
+                >
+                  <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                </button>
               </div>
             ) : (
               <>
                 {/* 4. Используем новые обработчики */}
-                <button 
+                <button
                   onClick={openLogin}
                   className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-2xl! hover:border-rose-300 hover:text-rose-500 hover:shadow-md transition-all duration-300 transform">
-                    Вход
+                  Вход
                 </button>
-              
-                <button 
+
+                <button
                   onClick={openRegister}
                   className="px-6 py-2.5 text-sm font-medium text-white bg-rose-500 rounded-2xl! hover:bg-rose-600 hover:shadow-lg transition-all duration-300 transform">
-                    Регистрация
+                  Регистрация
                 </button>
               </>
             )}
@@ -277,8 +337,8 @@ export const Header: React.FC = () => {
 
       {!isMobile && (
         <>
-          <Modal isOpen={isLoginOpen} onClose={() => { setIsLoginOpen(false); setError(null); }} title="Вход в аккаунт">
-            <form onSubmit={handleLoginSubmit} className="space-y-4 mt-2">
+          <Modal isOpen={isLoginOpen} onClose={() => { setIsLoginOpen(false); setError(null); setValidationErrors({}); }} title="Вход в аккаунт">
+            <form onSubmit={handleLoginSubmit} className="space-y-4 mt-2" noValidate>
               {error && (
                 <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
                   {error}
@@ -288,103 +348,152 @@ export const Header: React.FC = () => {
                 label="Email"
                 type="email"
                 value={loginForm.email}
-                onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                onChange={(e) => {
+                  setLoginForm({ ...loginForm, email: e.target.value });
+                  clearFieldError('email');
+                }}
                 required
                 placeholder="example@mail.ru"
+                // Добавляем класс ошибки, если поле не валидно
+                className={validationErrors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}
               />
+              {validationErrors.email && (
+                <p className="text-xs text-red-500 mt-1">{validationErrors.email}</p>
+              )}
+
               <Input
                 label="Пароль"
                 type="password"
                 value={loginForm.password}
-                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                onChange={(e) => {
+                  setLoginForm({ ...loginForm, password: e.target.value });
+                  clearFieldError('password');
+                }}
                 required
                 placeholder="••••••••"
+                className={validationErrors.password ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}
               />
+              {validationErrors.password && (
+                <p className="text-xs text-red-500 mt-1">{validationErrors.password}</p>
+              )}
+
               <div className="flex justify-center pt-2">
-                {/* Убедитесь, что Button прокидывает type="submit" на нативный <button> */}
-                <Button type="submit" isLoading={isLoading} className="w-full rounded-2xl! sm:w-auto">
+                <Button
+                  type="submit"
+                  isLoading={isLoading}
+                  disabled={isLoading || !!validationErrors.email || !!validationErrors.password} // Блокируем при ошибках
+                  className="w-full rounded-2xl! sm:w-auto"
+                >
                   Войти
                 </Button>
               </div>
-              <p className="text-xs text-center text-gray-500 mt-4">
-                Нет аккаунта?{' '}
-                {/* КРИТИЧНО: Добавлен type="button" */}
-                <button 
-                  type="button" 
-                  onClick={(e) => { e.preventDefault(); setIsLoginOpen(false); setIsRegisterOpen(true); }} 
-                  className="text-rose-500 hover:underline font-medium"
-                >
-                  Зарегистрироваться
-                </button>
-              </p>
               <p className="text-xs text-center text-gray-400 mt-2">
                 <Link to="/password-recovery" onClick={() => setIsLoginOpen(false)} className="text-rose-400! hover:text-rose-500! hover:underline"
-                style={{ textDecoration: 'none' }}>
+                  style={{ textDecoration: 'none' }}>
                   Забыли пароль?
                 </Link>
               </p>
             </form>
           </Modal>
 
-          <Modal isOpen={isRegisterOpen} onClose={() => { setIsRegisterOpen(false); setError(null); }} title="Регистрация">
-        <form onSubmit={handleRegisterSubmit} className="space-y-4 mt-2">
-          {error && (
-            <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
-              {error}
-            </div>
-          )}
-          <Input
-            label="Ваше имя"
-            type="text"
-            value={registerForm.name}
-            onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
-            required
-            placeholder="Елена"
-          />
-          <Input
-            label="Email"
-            type="email"
-            value={registerForm.email}
-            onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
-            required
-            placeholder="example@mail.ru"
-          />
-          <Input
-            label="Пароль"
-            type="password"
-            value={registerForm.password}
-            onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
-            required
-            placeholder="••••••••"
-            minLength={6}
-          />
-          
-          <div className="flex items-start gap-2 pt-2">
-            <input
-              type="checkbox"
-              id="agree"
-              checked={registerForm.agree}
-              onChange={(e) => setRegisterForm({ ...registerForm, agree: e.target.checked })}
-              className="w-4.5 h-4.5 mt-0.5 text-rose-500 border-gray-300 rounded focus:ring-rose-500 cursor-pointer"
-            />
-            <label htmlFor="agree" className="text-sm  text-gray-600 leading-tight">
-              Я согласна на обработку <button type="button" className="text-rose-500 hover:underline">персональных данных</button> и принимаю <button type="button" className="text-rose-500 hover:underline">условия соглашения</button>.
-            </label>
-          </div>
+          <Modal isOpen={isRegisterOpen} onClose={() => { setIsRegisterOpen(false); setError(null); setValidationErrors({}); }} title="Регистрация">
+            <form onSubmit={handleRegisterSubmit} className="space-y-4 mt-2" noValidate>
+              {error && (
+                <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+                  {error}
+                </div>
+              )}
 
-          <div className="flex justify-center pt-2">
-            <Button type="submit" isLoading={isLoading}  className="w-full rounded-2xl! sm:w-auto">
-              Создать аккаунт
-            </Button>
-          </div>
-          <p className="text-xs text-center text-gray-500 mt-4">
-            Уже есть аккаунт?{' '}
-            <button type="button" onClick={() => { setIsRegisterOpen(false); setIsLoginOpen(true); }} className="text-rose-500 hover:underline font-medium">
-              Войти
-            </button>
-          </p>
-        </form>
-      </Modal>
+              {/* Имя */}
+              <div>
+                <Input
+                  label="Ваше имя"
+                  type="text"
+                  value={registerForm.name}
+                  onChange={(e) => {
+                    setRegisterForm({ ...registerForm, name: e.target.value });
+                    clearFieldError('name');
+                  }}
+                  required
+                  placeholder="Елена"
+                  className={validationErrors.name ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}
+                />
+                {validationErrors.name && (
+                  <p className="text-xs text-red-500 mt-1">{validationErrors.name}</p>
+                )}
+              </div>
+
+              {/* Email */}
+              <div>
+                <Input
+                  label="Email"
+                  type="email"
+                  value={registerForm.email}
+                  onChange={(e) => {
+                    setRegisterForm({ ...registerForm, email: e.target.value });
+                    clearFieldError('email');
+                  }}
+                  required
+                  placeholder="example@mail.ru"
+                  className={validationErrors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}
+                />
+                {validationErrors.email && (
+                  <p className="text-xs text-red-500 mt-1">{validationErrors.email}</p>
+                )}
+              </div>
+
+              {/* Пароль */}
+              <div>
+                <Input
+                  label="Пароль"
+                  type="password"
+                  value={registerForm.password}
+                  onChange={(e) => {
+                    setRegisterForm({ ...registerForm, password: e.target.value });
+                    clearFieldError('password');
+                  }}
+                  required
+                  placeholder="••••••••"
+                  minLength={6}
+                  className={validationErrors.password ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}
+                />
+                {validationErrors.password && (
+                  <p className="text-xs text-red-500 mt-1">{validationErrors.password}</p>
+                )}
+              </div>
+
+              {/* Чекбокс согласия */}
+              <div className="flex items-start gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="agree"
+                  checked={registerForm.agree}
+                  onChange={(e) => setRegisterForm({ ...registerForm, agree: e.target.checked })}
+                  className="w-4.5 h-4.5 mt-0.5 text-rose-500 border-gray-300 rounded focus:ring-rose-500 cursor-pointer"
+                />
+                <label htmlFor="agree" className="text-sm text-gray-600 leading-tight">
+                  Я согласна на обработку <button type="button" className="text-rose-500 hover:underline">персональных данных</button> и принимаю <button type="button" className="text-rose-500 hover:underline">условия соглашения</button>.
+                </label>
+              </div>
+
+              <div className="flex justify-center pt-2">
+                <Button
+                  type="submit"
+                  isLoading={isLoading}
+                  disabled={isLoading || !!validationErrors.name || !!validationErrors.email || !!validationErrors.password}
+                  className="w-full rounded-2xl! sm:w-auto"
+                >
+                  Создать аккаунт
+                </Button>
+              </div>
+              <p className="text-xs text-center text-gray-500 mt-4">
+                Уже есть аккаунт?{' '}
+                <button type="button" onClick={() => { setIsRegisterOpen(false); setIsLoginOpen(true); }} className="text-rose-500 hover:underline font-medium">
+                  Войти
+                </button>
+              </p>
+            </form>
+          </Modal>
         </>
       )}
     </header>

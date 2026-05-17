@@ -9,13 +9,14 @@ export interface ReviewsListResponse {
 const mapReview = (data: any): Review => {
   return {
     id: data.ID || data.id,
-    user_id: data.UserID || data.user_id,
-    course_id: data.CourseID || data.course_id,
-    text: data.Text || data.text,
-    rating: data.Rating || data.rating,
-    approved: data.Approved || data.approved,
-    created_at: data.CreatedAt || data.created_at,
-    author_name: data.AuthorName || data.author_name || 'Аноним', 
+    user_id:  data.user_id,
+    course_id: data.course_id,
+    text:  data.text,
+    rating:  data.rating,
+    approved:  data.approved,
+    created_at:  data.created_at,
+    author_name:  data.author_name || 'Аноним', 
+    course_title:  data.course_title, 
   };
 };
 

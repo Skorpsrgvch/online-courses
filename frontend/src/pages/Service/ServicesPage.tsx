@@ -97,7 +97,7 @@ const ServicesPage: React.FC = () => {
                                             </span>
                                         </div>
                                         <button 
-                                        onClick={() => window.open('https://vk.com/im/convo/-211458152?entrypoint=community_page&tab=all', '_blank')}
+                                        onClick={() => window.open('https://vk.com/im/convo/14374433?entrypoint=list_all&tab=all', '_blank')}
                                         className="px-8 py-3 bg-rose-500 text-white font-semibold rounded-2xl! hover:bg-rose-600 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">
                                             Записаться
                                         </button>

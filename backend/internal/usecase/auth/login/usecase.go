@@ -8,19 +8,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type Input struct {
-	Email    string
-	Password string
-}
-
-type Output struct {
-	User *domain.User
-}
-
-type Usecase struct {
-	authenticator Authenticator // ← используем новый интерфейс
-}
-
 func NewUsecase(authenticator Authenticator) (*Usecase, error) {
 	if authenticator == nil {
 		return nil, errors.New("authenticator is required")
@@ -35,10 +22,15 @@ func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
 
 	user, passwordHash, err := u.authenticator.GetUserByEmail(ctx, input.Email)
 	if err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) {
+			return nil, domain.ErrInvalidCredentials
+		}
 		return nil, domain.ErrInvalidCredentials
 	}
 
+	// Сравнение пароля
 	if err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(input.Password)); err != nil {
+		// Пароль не подошел
 		return nil, domain.ErrInvalidCredentials
 	}
 

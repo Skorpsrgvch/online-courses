@@ -24,7 +24,7 @@ type ReviewDTO struct {
 	Rating     int       `json:"rating"`
 	Approved   bool      `json:"approved"`
 	CreatedAt  time.Time `json:"created_at"`
-	AuthorName string    `json:"author_name"` // 1. Добавили поле
+	AuthorName string    `json:"author_name"`
 }
 
 type ReviewReader interface {
@@ -58,7 +58,7 @@ func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
 			Rating:     r.Rating,
 			Approved:   r.Approved,
 			CreatedAt:  r.CreatedAt,
-			AuthorName: r.AuthorName, // 2. Копируем имя автора из доменной модели
+			AuthorName: r.AuthorName,
 		})
 	}
 

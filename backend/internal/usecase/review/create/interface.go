@@ -11,7 +11,7 @@ type ReviewSaver interface {
 }
 
 type UserFinder interface {
-	GetByID(ctx context.Context, id int) (*domain.User, error)
+	GetUserByID(ctx context.Context, id int) (*domain.User, error)
 }
 
 type CourseFinder interface {

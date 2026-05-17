@@ -6,14 +6,15 @@ import (
 )
 
 type Review struct {
-	ID         int       `json:"id"`
-	UserID     int       `json:"user_id"`
-	CourseID   int       `json:"course_id"`
-	Text       string    `json:"text"`
-	Rating     int       `json:"rating"`
-	Approved   bool      `json:"approved"`
-	CreatedAt  time.Time `json:"created_at"`
-	AuthorName string    `json:"author_name"`
+	ID          int       `json:"id"`
+	UserID      int       `json:"user_id"`
+	CourseID    int       `json:"course_id"`
+	Text        string    `json:"text"`
+	Rating      int       `json:"rating"`
+	Approved    bool      `json:"approved"`
+	CreatedAt   time.Time `json:"created_at"`
+	AuthorName  string    `json:"author_name"`
+	CourseTitle string    `json:"course_title"`
 }
 
 func NewReview(text string, rating int, userID, courseID int) (*Review, error) {

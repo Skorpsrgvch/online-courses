@@ -13,8 +13,8 @@ type User struct {
 	CreatedAt time.Time
 }
 
-// NewUser — создаёт нового пользователя (пароль НЕ хранится в структуре!)
-// Пароль передаётся отдельно для хэширования вне domain.
+// NewUser создаёт нового пользователя.
+// Валидирует только формат данных, НЕ проверяет существование в БД.
 func NewUser(email, name, role string) (*User, error) {
 	if email == "" {
 		return nil, fmt.Errorf("email is required")
@@ -33,7 +33,7 @@ func NewUser(email, name, role string) (*User, error) {
 	}, nil
 }
 
-// RestoreUser — восстанавливает пользователя из БД (без пароля!)
+// RestoreUser восстанавливает пользователя из данных БД
 func RestoreUser(id int, email, name, role string, createdAt time.Time) *User {
 	return &User{
 		ID:        id,
@@ -42,14 +42,4 @@ func RestoreUser(id int, email, name, role string, createdAt time.Time) *User {
 		Role:      role,
 		CreatedAt: createdAt,
 	}
-}
-
-// PasswordHash — отдельный тип для явного разделения ответственности
-type PasswordHash string
-
-// IsValid проверяет, совпадает ли хэш с паролем (вызывается в usecase/auth)
-func (ph PasswordHash) IsValid(password string) bool {
-	// Реализуется в адаптере (например, через golang.org/x/crypto/bcrypt)
-	// Здесь — заглушка
-	return true
 }

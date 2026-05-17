@@ -35,7 +35,9 @@ import (
 	"github.com/Skorpsrgvch/online-courses/internal/usecase/payment/confirm"
 	"github.com/Skorpsrgvch/online-courses/internal/usecase/payment/create"
 	"github.com/Skorpsrgvch/online-courses/internal/usecase/payment/list"
+	"golang.org/x/time/rate"
 
+	"github.com/Skorpsrgvch/online-courses/internal/adapter/email"
 	serviceCreate "github.com/Skorpsrgvch/online-courses/internal/usecase/service/create"
 	serviceDelete "github.com/Skorpsrgvch/online-courses/internal/usecase/service/delete"
 	serviceGet "github.com/Skorpsrgvch/online-courses/internal/usecase/service/get"
@@ -68,6 +70,12 @@ import (
 	access "github.com/Skorpsrgvch/online-courses/internal/usecase/admin/access"
 	search "github.com/Skorpsrgvch/online-courses/internal/usecase/admin/search"
 
+	logout "github.com/Skorpsrgvch/online-courses/internal/usecase/auth/logout"
+	refresh "github.com/Skorpsrgvch/online-courses/internal/usecase/auth/refresh"
+
+	changePassword "github.com/Skorpsrgvch/online-courses/internal/usecase/user/change_password"
+	updateProfile "github.com/Skorpsrgvch/online-courses/internal/usecase/user/update_profile"
+
 	"github.com/Skorpsrgvch/online-courses/pkg/db"
 	"github.com/gin-gonic/gin"
 )
@@ -77,8 +85,16 @@ func main() {
 
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
-		dbURL = "postgres://courses:securepass@localhost:5432/courses?sslmode=disable"
+		log.Fatal("dbURL must be set")
 	}
+
+	smtpHost := os.Getenv("SMTP_HOST")
+	smtpPort := os.Getenv("SMTP_PORT")
+	if smtpHost == "" || smtpPort == "" {
+		log.Fatal("SMTP_HOST and SMTP_PORT must be set in .env")
+	}
+
+	emailSender := email.NewSMTPSender()
 
 	yookassaConfig := yookassa.Config{
 		ShopID:    os.Getenv("YOOKASSA_SHOP_ID"),
@@ -112,7 +128,6 @@ func main() {
 	userRepo := postgres.NewUserRepo(dbConn)
 
 	courseRepo := postgres.NewCourseRepo(dbConn)
-
 	courseTxRepo := postgres.NewCourseTxRepo(dbConn)
 	courseFullRepo := postgres.NewCourseFullRepo(dbConn)
 
@@ -120,30 +135,26 @@ func main() {
 	lessonRepo := postgres.NewLessonRepo(dbConn)
 	progressRepo := postgres.NewProgressRepo(dbConn)
 	reviewRepo := postgres.NewReviewRepo(dbConn)
-
 	serviceRepo := postgres.NewServiceRepo(dbConn)
 
-	// PurchaseRepo используется для проверки покупок и их создания
 	purchaseRepo := postgres.NewPurchaseRepo(dbConn)
-
 	resetTokenRepo := postgres.NewResetTokenRepo(dbConn)
-
-	// PaymentRepo для работы с платежами
 	paymentRepo := postgres.NewPaymentRepository(dbConn)
+
+	refreshTokenRepo := postgres.NewRefreshTokenRepo(dbConn)
 
 	// === Юзкейсы ===
 	// Аутентификация
 	registerUC, _ := register.NewUsecase(userRepo)
 	loginUC, _ := login.NewUsecase(userRepo)
 
+	refreshUС, _ := refresh.NewUsecase(refreshTokenRepo, userRepo)
+	logoutUС, _ := logout.NewUsecase(refreshTokenRepo)
 	// Курсы
 	createCourseUC, _ := courseCreate.NewUsecase(courseRepo)
 	createWithModulesUC, _ := createwithmodules.NewUsecase(courseTxRepo)
 	getFullCourseUC, _ := courseGetFull.NewUsecase(courseRepo, moduleRepo, lessonRepo, purchaseRepo, progressRepo)
-	updateCourseUC, err := courseUpdate.NewUsecase(courseRepo)
-	if err != nil {
-		log.Fatalf("Failed to create update course usecase: %v", err)
-	}
+	updateCourseUC, _ := courseUpdate.NewUsecase(courseRepo)
 	deleteCourseUC, _ := courseDelete.NewUsecase(courseRepo)
 	listCourseUC, _ := courseList.NewUsecase(courseRepo)
 	updateFullCourseUC := updatefullcourse.NewUsecase(courseFullRepo)
@@ -179,8 +190,17 @@ func main() {
 	// Пользователь
 	userProfileUC, _ := userProfile.NewUsecase(userRepo)
 	userCoursesUC, _ := userCourses.NewUsecase(courseRepo, purchaseRepo, progressRepo)
-	forgotPasswordUC, _ := forgotPassword.NewUsecase(userRepo, resetTokenRepo)
-	resetPasswordUC, _ := resetPassword.NewUsecase(resetTokenRepo, userRepo)
+
+	forgotPasswordUC, err := forgotPassword.NewUsecase(userRepo, resetTokenRepo, emailSender)
+	if err != nil {
+		log.Fatalf("Failed to create forgot password usecase: %v", err)
+	}
+
+	// Инициализация ResetPassword (теперь использует CodeChecker интерфейс, который реализует ResetTokenRepo)
+	resetPasswordUC, err := resetPassword.NewUsecase(resetTokenRepo, userRepo)
+	if err != nil {
+		log.Fatalf("Failed to create reset password usecase: %v", err)
+	}
 
 	// === UseCases: Платежи ===
 	confirmPaymentUC := confirm.NewUseCase(paymentRepo, purchaseRepo)
@@ -190,7 +210,8 @@ func main() {
 	createPaymentUC := create.NewUseCase(paymentRepo, courseRepo, purchaseRepo, paymentGateway)
 
 	searchUsersUC := search.NewUsecase(userRepo)
-
+	changePasswordUС, _ := changePassword.NewUsecase(userRepo)
+	updateProfileUС, _ := updateProfile.NewUsecase(userRepo)
 	accessUS, _ := access.NewUsecase(userRepo, courseRepo, purchaseRepo)
 
 	// === Хендлеры ===
@@ -199,17 +220,17 @@ func main() {
 	loginHandler := auth.NewLoginHandler(loginUC)
 	forgotPasswordHandler := auth.NewForgotPasswordHandler(forgotPasswordUC)
 	resetPasswordHandler := auth.NewResetPasswordHandler(resetPasswordUC)
+	refreshHandler := auth.NewRefreshHandler(refreshUС)
+	logoutHandler := auth.NewLogoutHandler(logoutUС)
 
 	// Курсы
 	createCourseHandler := course.NewCreateHandler(createCourseUC)
 	createWithModulesHandler := course.NewCreateWithModulesHandler(createWithModulesUC)
-
 	getFullCourseHandler := course.NewGetFullHandler(getFullCourseUC)
 	updateCourseHandler := course.NewUpdateHandler(updateCourseUC)
 	deleteCourseHandler := course.NewDeleteHandler(deleteCourseUC)
 	listCourseHandler := course.NewListHandler(listCourseUC)
 	updateFullCourseHandler := course.NewUpdateFullCourseHandler(updateFullCourseUC)
-
 	reorderHandler := course.NewReorderHandler(updateFullCourseUC)
 
 	// === Хендлеры: Услуги ===
@@ -244,6 +265,8 @@ func main() {
 	// Пользователь
 	userProfileHandler := user.NewProfileHandler(userProfileUC)
 	userCoursesHandler := user.NewCoursesHandler(userCoursesUC)
+	changePasswordHandler := user.NewChangePasswordHandler(changePasswordUС)
+	updateProfileHandler := user.NewUpdateProfileHandler(updateProfileUС)
 
 	// Платежи
 	createPaymentHandler := payment.NewCreateHandler(createPaymentUC)
@@ -251,6 +274,7 @@ func main() {
 	callbackPaymentHandler := payment.NewCallbackHandler(callbackPaymentUC)
 	listPaymentHandler := payment.NewListHandler(listPaymentUC)
 
+	// Admin
 	searchUsersHandler := admin.NewSearchUsersHandler(searchUsersUC)
 	accessHandler := admin.NewGrantAccessHandler(accessUS)
 
@@ -260,7 +284,13 @@ func main() {
 
 	// CORS для фронтенда
 	r.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+
+		frontendURL := os.Getenv("FRONTEND_URL")
+		if frontendURL == "" {
+			frontendURL = "http://localhost:3000"
+		}
+
+		c.Writer.Header().Set("Access-Control-Allow-Origin", frontendURL)
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -273,25 +303,27 @@ func main() {
 
 	// 1. ПОЛНОСТЬЮ ПУБЛИЧНЫЕ ЭНДПОИНТЫ
 	authGroup := r.Group("/api/auth")
+	authGroup.Use(middleware.RateLimitMiddleware(rate.Every(1*time.Second), 5))
 	{
 		authGroup.POST("/register", registerHandler.Handle)
 		authGroup.POST("/login", loginHandler.Handle)
 		authGroup.POST("/forgot-password", forgotPasswordHandler.Handle)
 		authGroup.POST("/reset-password", resetPasswordHandler.Handle)
+		authGroup.POST("/refresh", refreshHandler.Handle)
 	}
 
 	// 2. ПУБЛИЧНЫЙ ПРОСМОТР
 	publicApi := r.Group("/api")
 	{
+
 		publicApi.GET("/courses", listCourseHandler.Handle)
+		publicApi.GET("/services", listServiceHandler.Handle)
+		publicApi.GET("/payments/:payment_id/confirm", confirmPaymentHandler.HandleGet)
+		publicApi.POST("/payments/callback", callbackPaymentHandler.Handle)
 
 		publicApi.GET("/courses/:id/modules", getModuleHandler.Handle)
 		publicApi.GET("/courses/:id/reviews", listReviewHandler.Handle)
 
-		publicApi.GET("/services", listServiceHandler.Handle)
-
-		publicApi.GET("/payments/:payment_id/confirm", confirmPaymentHandler.HandleGet)
-		publicApi.POST("/payments/callback", callbackPaymentHandler.Handle)
 	}
 
 	// 3. ЗАЩИЩЁННЫЕ ЭНДПОИНТЫ
@@ -300,8 +332,11 @@ func main() {
 	{
 		// Личные данные
 		protectedApi.GET("/auth/me", auth.NewMeHandler().Handle)
-		protectedApi.POST("/auth/refresh", auth.NewRefreshHandler().Handle)
+		protectedApi.POST("/auth/logout", logoutHandler.Handle)
+
 		protectedApi.GET("/user/profile", userProfileHandler.Handle)
+		protectedApi.PUT("/user/profile", updateProfileHandler.Handle)
+		protectedApi.PUT("/user/password", changePasswordHandler.Handle)
 		protectedApi.GET("/user/courses", userCoursesHandler.Handle)
 
 		protectedApi.POST("/users/search", searchUsersHandler.Handle)

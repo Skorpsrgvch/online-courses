@@ -19,7 +19,7 @@ type Output struct {
 
 // Зависимости
 type UserRepo interface {
-	GetByID(ctx context.Context, id int) (*domain.User, error)
+	GetUserByID(ctx context.Context, id int) (*domain.User, error)
 }
 
 type CourseRepo interface {
@@ -49,7 +49,7 @@ func NewUsecase(userRepo UserRepo, courseRepo CourseRepo, purchaseRepo PurchaseR
 
 func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
 	// 1. Проверяем существование пользователя
-	_, err := u.userRepo.GetByID(ctx, input.UserID)
+	_, err := u.userRepo.GetUserByID(ctx, input.UserID)
 	if err != nil {
 		return nil, errors.New("пользователь не найден")
 	}

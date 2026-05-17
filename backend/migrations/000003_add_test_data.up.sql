@@ -291,46 +291,38 @@ WHERE u.email = 'user1@test.ru'
 
 -- Отзывы (упрощенная вставка по одному, чтобы избежать ошибок)
 INSERT INTO reviews (user_id, course_id, text, rating, approved, created_at)
-SELECT u.id, c.id, 'Отличный курс! Очень помогло восстановить силы.', 5, true, NOW()
-FROM users u, courses c WHERE u.email = 'user@test.ru' AND c.title = 'Женский курс'
+SELECT u.id, c.id, 'Отличный курс! Очень помогло восстановить силы.', 5, false, NOW()
+FROM users u, courses c WHERE u.email = 'user1@test.ru' AND c.title = 'Женский курс'
 ON CONFLICT (user_id, course_id) DO UPDATE SET text = EXCLUDED.text;
 
 INSERT INTO reviews (user_id, course_id, text, rating, approved, created_at)
-SELECT u.id, c.id, 'Наконец-то прошла боль в пояснице!', 5, true, NOW()
-FROM users u, courses c WHERE u.email = 'user@test.ru' AND c.title = 'Здоровая спина мамы'
+SELECT u.id, c.id, 'Наконец-то прошла боль в пояснице!', 4, false, NOW()
+FROM users u, courses c WHERE u.email = 'user2@test.ru' AND c.title = 'Здоровая спина мамы'
 ON CONFLICT (user_id, course_id) DO UPDATE SET text = EXCLUDED.text;
 
 INSERT INTO reviews (user_id, course_id, text, rating, approved, created_at)
-SELECT u.id, c.id, 'Результат почувствовала через 2 недели.', 5, true, NOW()
-FROM users u, courses c WHERE u.email = 'user@test.ru' AND c.title = 'Сила интимных мышц'
+SELECT u.id, c.id, 'Результат почувствовала через 2 недели.', 3, false, NOW()
+FROM users u, courses c WHERE u.email = 'user3@test.ru' AND c.title = 'Сила интимных мышц'
 ON CONFLICT (user_id, course_id) DO UPDATE SET text = EXCLUDED.text;
 
 INSERT INTO reviews (user_id, course_id, text, rating, approved, created_at)
-SELECT u.id, c.id, 'Курс помог подготовиться к родам.', 5, true, NOW()
-FROM users u, courses c WHERE u.email = 'user@test.ru' AND c.title = 'Легкая беременность'
+SELECT u.id, c.id, 'Курс помог подготовиться к родам.', 5, false, NOW()
+FROM users u, courses c WHERE u.email = 'user4@test.ru' AND c.title = 'Легкая беременность'
 ON CONFLICT (user_id, course_id) DO UPDATE SET text = EXCLUDED.text;
 
-INSERT INTO reviews (user_id, course_id, text, rating, approved, created_at)
-SELECT u.id, c.id, 'Программа восстановления просто спасение.', 5, true, NOW()
-FROM users u, courses c WHERE u.email = 'user@test.ru' AND c.title = 'Восстановление после родов'
-ON CONFLICT (user_id, course_id) DO UPDATE SET text = EXCLUDED.text;
-
-INSERT INTO reviews (user_id, course_id, text, rating, approved, created_at)
-SELECT u.id, c.id, 'Крутой курс.', 4, true, NOW()
-FROM users u, courses c WHERE u.email = 'user2@test.ru' AND c.title = 'Женский курс'
-ON CONFLICT (user_id, course_id) DO UPDATE SET text = EXCLUDED.text;
-
-INSERT INTO reviews (user_id, course_id, text, rating, approved, created_at)
-SELECT u.id, c.id, 'Не понравилось.', 2, true, NOW()
-FROM users u, courses c WHERE u.email = 'user3@test.ru' AND c.title = 'Женский курс'
-ON CONFLICT (user_id, course_id) DO UPDATE SET text = EXCLUDED.text;
-
-INSERT INTO reviews (user_id, course_id, text, rating, approved, created_at)
-SELECT u.id, c.id, 'Можно было и лучше', 3, true, NOW()
-FROM users u, courses c WHERE u.email = 'user4@test.ru' AND c.title = 'Женский курс'
-ON CONFLICT (user_id, course_id) DO UPDATE SET text = EXCLUDED.text;
 
 INSERT INTO services (title, description, price, duration_minutes) VALUES
+(
+    'Бесплатная диагностическая консультация',
+    'Короткая онлайн-встреча для знакомства и определения вектора работы. Вы рассказываете о проблеме, я оцениваю ситуацию и предлагаю варианты помощи.
+     Идеально, если вы сомневаетесь, какой формат вам подойдет.|||
+     Обсуждение ваших симптомов и целей.|||
+     Оценка необходимости очной или онлайн-работы.|||
+     Первичные рекомендации по облегчению состояния.|||
+     Ответы на ваши вопросы.',
+    0,
+    20
+),
 (
     'Индивидуальная консультация/занятие',
     'Персональная работа с тренером-реабилитологом для решения конкретных проблем здоровья. Разбор симптомов, диагностика состояния и составление четкого плана действий.|||
@@ -349,24 +341,11 @@ INSERT INTO services (title, description, price, duration_minutes) VALUES
      Необходима при подготовке к лечению, а также после любого вида лечения. 
      При ограничении подвижности в плече со стороны операции, болях, отеках, web-syndrome (тяже), для мобилизации послеоперационного шва.',
     4000,
-    60
-),
-(
-    'Бесплатная диагностическая консультация',
-    'Короткая онлайн-встреча для знакомства и определения вектора работы. Вы рассказываете о проблеме, я оцениваю ситуацию и предлагаю варианты помощи.
-     Идеально, если вы сомневаетесь, какой формат вам подойдет.|||
-     Обсуждение ваших симптомов и целей.|||
-     Оценка необходимости очной или онлайн-работы.|||
-     Первичные рекомендации по облегчению состояния.|||
-     Ответы на организационные вопросы.',
-    0,
-    20
+    90
 ),
 (
     'Физическая реабилитация при РМЖ',
-    'Комплексная программа физической реабилитации для женщин после лечения рака молочной железы. 
-     Поможет восстановить подвижность плеча, справиться с отёками и рубцами, вернуть уверенность в своём теле. 
-     Индивидуальный подход с учётом диагноза и этапа лечения.|||
+    'Комплексная программа физической реабилитации для женщин после лечения рака молочной железы.|||
      Составление комплексов упражнений с учетом диагноза и проведенного лечения, а также вашего запроса.|||
      Восстановление функциональной активности с учетом риска лимфостаза.|||
      Работа с самыми частыми жалобами и состояниями на фоне лечения:|||
@@ -379,9 +358,7 @@ INSERT INTO services (title, description, price, duration_minutes) VALUES
 ),
 (
     'Послеродовый патронаж для мамы',
-    'Первые дни и недели после родов являются ключевыми для послеродового восстановления матери, 
-     поскольку они закладывают прочную основу для долгосрочного здоровья и благополучия.
-    Подходит для женщин после родов от 3 дней до 6 месяцев. Как после естественных родов, так и после кесарева сечения.|||
+    'Подходит для женщин после родов от 3 дней до 6 месяцев. Как после естественных родов, так и после кесарева сечения.|||
     Что входит в патронаж для матери:|||
         - Мягкие мануальные техники для восстановления положения внутренних органов,|||
         - Дыхательные техники, приводящие в баланс нервную систему мамы,|||

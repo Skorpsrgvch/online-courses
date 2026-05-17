@@ -73,9 +73,8 @@ export const Footer: React.FC = () => {
                 { name: 'Главная', href: '/' },
                 { name: 'О специалисте', href: '/#about' },
                 { name: 'Курсы', href: '/#courses' },
-                { name: 'Статьи', href: '/#articles' },
-                { name: 'Видео', href: '/#videos' },
-                { name: 'Отзывы', href: '/#reviews' }
+                 { name: 'Курсы', href: '/#services' }
+
               ].map((link) => (
                 <li key={link.name}>
                   <a

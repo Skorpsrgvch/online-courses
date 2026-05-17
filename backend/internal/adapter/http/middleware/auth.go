@@ -22,12 +22,11 @@ var jwtSecret []byte
 func init() {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		secret = "online-courses-super-secret-jwt-key-2026"
+		log.Println("WARNING: JWT_SECRET not set, using default value")
 	}
 	jwtSecret = []byte(secret)
 }
 
-// Claims — данные, хранимые в JWT
 type Claims struct {
 	UserID int    `json:"user_id"`
 	Email  string `json:"email"`
@@ -36,11 +35,9 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-// GenerateToken создаёт JWT + Refresh-токен
 func GenerateToken(userID int, email, name, role string) (accessToken, refreshToken string, err error) {
 	now := time.Now().UTC()
 
-	// Access token — 15 минут
 	accessClaims := Claims{
 		UserID: userID,
 		Email:  email,
@@ -59,11 +56,10 @@ func GenerateToken(userID int, email, name, role string) (accessToken, refreshTo
 		return "", "", err
 	}
 
-	// Refresh token — 30 дней
 	refreshClaims := Claims{
 		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(now.Add(30 * 24 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(now.Add(7 * 24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(now),
 			Issuer:    "online-courses",
 		},
@@ -78,7 +74,6 @@ func GenerateToken(userID int, email, name, role string) (accessToken, refreshTo
 	return accessToken, refreshToken, nil
 }
 
-// ParseToken валидирует JWT и возвращает Claims
 func ParseToken(tokenString string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(t *jwt.Token) (interface{}, error) {
 		return jwtSecret, nil
@@ -94,12 +89,19 @@ func ParseToken(tokenString string) (*Claims, error) {
 	return nil, jwt.ErrSignatureInvalid
 }
 
+// AuthMiddleware проверяет токен. Если токен есть, но невалиден — возвращает 401.
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 
-		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+		if authHeader == "" {
 			c.Next()
+			return
+		}
+
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			c.JSON(401, gin.H{"error": "неверный формат токена"})
+			c.Abort()
 			return
 		}
 
@@ -108,16 +110,28 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		if err != nil {
 			log.Printf("Invalid token: %v", err)
-			c.Next()
+			c.JSON(401, gin.H{"error": "неавторизован"})
+			c.Abort()
 			return
 		}
 
-		// Если токен валиден — кладем данные в контекст
 		c.Set(UserIDKey, claims.UserID)
 		c.Set(RoleKey, claims.Role)
 		c.Set(EmailKey, claims.Email)
 		c.Set(NameKey, claims.Name)
 
+		c.Next()
+	}
+}
+
+func RequireAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := GetUserID(c)
+		if userID == 0 {
+			c.JSON(401, gin.H{"error": "требуется авторизация"})
+			c.Abort()
+			return
+		}
 		c.Next()
 	}
 }

@@ -3,8 +3,10 @@ package forgotpassword
 import (
 	"context"
 	"crypto/rand"
-	"encoding/hex"
 	"errors"
+	"fmt"
+	"log"
+	"math/big"
 	"time"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
@@ -15,63 +17,102 @@ type Input struct {
 }
 
 type Output struct {
-	Token     string `json:"token"`
 	Message   string `json:"message"`
-	ExpiresIn int    `json:"expires_in"` // минуты
+	ExpiresIn int    `json:"expires_in"`
 }
 
 type UserReader interface {
 	GetUserByEmail(ctx context.Context, email string) (*domain.User, string, error)
 }
 
-type TokenCreator interface {
-	CreateResetToken(ctx context.Context, userID int, token string, expiresAt time.Time) error
+type CodeStore interface {
+	CreateCode(ctx context.Context, userID int, code string, expiresAt time.Time) error
+	GetLastCodeTime(ctx context.Context, userID int) (time.Time, error) // Новый метод
+}
+
+type EmailSender interface {
+	SendResetCode(to, code string) error
 }
 
 type Usecase struct {
 	userReader  UserReader
-	tokenCreator TokenCreator
+	codeStore   CodeStore
+	emailSender EmailSender
 }
 
-func NewUsecase(userReader UserReader, tokenCreator TokenCreator) (*Usecase, error) {
-	if userReader == nil || tokenCreator == nil {
-		return nil, errors.New("userReader and tokenCreator are required")
+// Минимальный интервал между запросами кода (в минутах)
+const minInterval = 2 * time.Minute
+
+func NewUsecase(userReader UserReader, codeStore CodeStore, emailSender EmailSender) (*Usecase, error) {
+	if userReader == nil || codeStore == nil || emailSender == nil {
+		return nil, errors.New("dependencies are required")
 	}
-	return &Usecase{userReader: userReader, tokenCreator: tokenCreator}, nil
+	return &Usecase{userReader: userReader, codeStore: codeStore, emailSender: emailSender}, nil
 }
 
 func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
 	if input.Email == "" {
-		return nil, domain.ErrInvalidCredentials
+		// Возвращаем успех, чтобы не светить наличием полей
+		return &Output{Message: "Если email зарегистрирован, на него отправлен код.", ExpiresIn: 15}, nil
 	}
 
 	user, _, err := u.userReader.GetUserByEmail(ctx, input.Email)
 	if err != nil {
-		// Не раскрываем существует ли пользователь — возвращаем успех
-		return &Output{
-			Message:   "Если email зарегистрирован, на него отправлена ссылка для сброса пароля.",
-			ExpiresIn: 30,
-		}, nil
+		// Если пользователя нет — все равно говорим "успех"
+		return &Output{Message: "Если email зарегистрирован, на него отправлен код.", ExpiresIn: 15}, nil
 	}
 
-	// Генерируем токен
-	tokenBytes := make([]byte, 32)
-	if _, err := rand.Read(tokenBytes); err != nil {
-		return nil, errors.New("failed to generate reset token")
+	// === ПРОВЕРКА RATE LIMIT (Бизнес-уровень) ===
+	lastCodeTime, err := u.codeStore.GetLastCodeTime(ctx, user.ID)
+	if err == nil && !lastCodeTime.IsZero() {
+		timeSinceLast := time.Since(lastCodeTime)
+		if timeSinceLast < minInterval {
+			waitTime := int((minInterval - timeSinceLast).Seconds())
+			log.Printf("[RateLimit] User %d tried to request code too soon. Wait %d seconds.", user.ID, waitTime)
+			// Возвращаем успех, но код не шлем и не создаем
+			return &Output{
+				Message:   fmt.Sprintf("Код уже был отправлен. Подождите %d сек.", waitTime),
+				ExpiresIn: 15,
+			}, nil
+		}
 	}
-	token := hex.EncodeToString(tokenBytes)
 
-	expiresAt := time.Now().UTC().Add(30 * time.Minute)
-
-	if err := u.tokenCreator.CreateResetToken(ctx, user.ID, token, expiresAt); err != nil {
-		return nil, err
+	// Генерируем код
+	code, err := generateCode()
+	if err != nil {
+		log.Printf("[ForgotPassword] Failed to generate code: %v", err)
+		return nil, errors.New("failed to generate code")
 	}
 
-	// В реальном приложении здесь отправка email.
-	// Для тестирования возвращаем токен.
+	expiresAt := time.Now().UTC().Add(15 * time.Minute)
+
+	// Сохраняем код (тут же инвалидируются старые)
+	if err := u.codeStore.CreateCode(ctx, user.ID, code, expiresAt); err != nil {
+		log.Printf("[ForgotPassword] Failed to save code: %v", err)
+		return nil, errors.New("failed to save code")
+	}
+
+	// Отправляем email
+	if err := u.emailSender.SendResetCode(user.Email, code); err != nil {
+		log.Printf("[ForgotPassword] Failed to send email: %v", err)
+		// В продакшене лучше вернуть ошибку или залогировать, но пользователю сказать успех,
+		// чтобы не проверять существование почты через ошибки SMTP.
+		// Но для отладки пока вернем ошибку, если SMTP упал.
+		return nil, errors.New("failed to send email")
+	}
+
 	return &Output{
-		Token:     token,
-		Message:   "Токен сброшен. Для теста используйте этот токен в /auth/reset-password.",
-		ExpiresIn: 30,
+		Message:   "Код отправлен на ваш email.",
+		ExpiresIn: 15,
 	}, nil
+}
+
+func generateCode() (string, error) {
+	max := big.NewInt(900000)
+	n, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		return "", err
+	}
+	code := n.Int64() + 100000
+	return fmt.Sprintf("%d", code), nil
 }

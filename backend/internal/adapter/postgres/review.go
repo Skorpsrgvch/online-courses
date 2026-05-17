@@ -105,37 +105,41 @@ func (r *ReviewRepo) GetApprovedReviewsByCourse(ctx context.Context, courseID in
 }
 
 func (r *ReviewRepo) GetPendingReviews(ctx context.Context) ([]*domain.Review, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT r.id, r.user_id, r.course_id, r.text, r.rating, r.approved, r.created_at, 
-               COALESCE(NULLIF(u.full_name, ''), 'Аноним') as author_name
+	// ИСПРАВЛЕНО: выбираем approved вместо status, так как в БД и структуре используется approved
+	query := `
+        SELECT 
+            r.id, r.user_id, r.course_id, r.rating, r.text, r.approved, r.created_at,
+            u.full_name as author_name,
+            c.title as course_title
         FROM reviews r
         JOIN users u ON r.user_id = u.id
-        WHERE r.approved = false
-        ORDER BY r.created_at DESC`,
-	)
+        JOIN courses c ON r.course_id = c.id
+        WHERE r.approved = false  -- Ищем неодобренные отзывы
+        ORDER BY r.created_at DESC
+    `
+
+	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	reviews := make([]*domain.Review, 0)
-
+	var reviews []*domain.Review
 	for rows.Next() {
-		var (
-			id, userID, courseID int
-			text                 string
-			rating               int
-			approved             bool
-			createdAt            time.Time
-			authorName           string
+		var rev domain.Review
+		err := rows.Scan(
+			&rev.ID, &rev.UserID, &rev.CourseID, &rev.Rating, &rev.Text,
+			&rev.Approved, &rev.CreatedAt, &rev.AuthorName, &rev.CourseTitle,
 		)
-		err := rows.Scan(&id, &userID, &courseID, &text, &rating, &approved, &createdAt, &authorName)
 		if err != nil {
 			return nil, err
 		}
-		reviews = append(reviews, domain.RestoreReview(id, userID, courseID, text, rating, approved, createdAt, authorName))
+		log.Printf("[ReviewRepo] GetPending: Found review ID=%d | CourseID=%d | CourseTitle='%s' | Author='%s' | Rating=%d",
+			rev.ID, rev.CourseID, rev.CourseTitle, rev.AuthorName, rev.Rating)
+		reviews = append(reviews, &rev)
 	}
-	return reviews, nil
+
+	return reviews, rows.Err()
 }
 
 func (r *ReviewRepo) ApproveReview(ctx context.Context, reviewID int) error {

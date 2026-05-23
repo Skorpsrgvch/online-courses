@@ -10,6 +10,10 @@ const AllCoursesPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+      window.scrollTo(0, 0);
+    }, []);
+    
+  useEffect(() => {
     const fetchCourses = async () => {
       try {
         setLoading(true);

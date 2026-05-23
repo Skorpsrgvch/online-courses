@@ -3,12 +3,12 @@ package module
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/middleware"
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
-	"github.com/Skorpsrgvch/online-courses/internal/usecase/module/create"
+	createUC "github.com/Skorpsrgvch/online-courses/internal/usecase/module/create"
+	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type createModuleRequest struct {
@@ -18,10 +18,10 @@ type createModuleRequest struct {
 }
 
 type CreateHandler struct {
-	usecase *create.Usecase
+	usecase *createUC.Usecase
 }
 
-func NewCreateHandler(usecase *create.Usecase) *CreateHandler {
+func NewCreateHandler(usecase *createUC.Usecase) *CreateHandler {
 	return &CreateHandler{usecase: usecase}
 }
 
@@ -33,20 +33,25 @@ func (h *CreateHandler) Handle(c *gin.Context) {
 
 	var req createModuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		zap.L().Debug("Invalid JSON in create module", zap.Error(err))
 		common.HandleError(c, err)
 		return
 	}
 
-	input := create.Input{
+	zap.L().Debug("Creating module", zap.Int("courseID", req.CourseID), zap.String("title", req.Title))
+
+	input := createUC.Input{
 		CourseID: req.CourseID,
 		Title:    req.Title,
 		Order:    req.Order,
 	}
 
 	if err := h.usecase.Execute(c.Request.Context(), input); err != nil {
+		zap.L().Error("Failed to create module", zap.Error(err))
 		common.HandleError(c, err)
 		return
 	}
 
+	zap.L().Info("Module created successfully", zap.Int("courseID", req.CourseID), zap.String("title", req.Title))
 	c.Status(http.StatusCreated)
 }

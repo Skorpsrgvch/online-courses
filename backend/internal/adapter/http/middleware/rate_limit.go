@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 )
 
@@ -36,6 +37,7 @@ func RateLimitMiddleware(limit rate.Limit, burst int) gin.HandlerFunc {
 		limiter := getLimiter(ip)
 
 		if !limiter.Allow() {
+			zap.L().Warn("Rate limit exceeded", zap.String("ip", ip))
 			c.JSON(http.StatusTooManyRequests, gin.H{
 				"error": "Слишком много запросов. Попробуйте позже.",
 			})

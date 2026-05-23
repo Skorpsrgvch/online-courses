@@ -6,8 +6,9 @@ import (
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/middleware"
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
-	"github.com/Skorpsrgvch/online-courses/internal/usecase/review/create"
+	createUC "github.com/Skorpsrgvch/online-courses/internal/usecase/review/create"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type createReviewRequest struct {
@@ -17,27 +18,30 @@ type createReviewRequest struct {
 }
 
 type CreateHandler struct {
-	usecase *create.Usecase
+	usecase *createUC.Usecase
 }
 
-func NewCreateHandler(usecase *create.Usecase) *CreateHandler {
+func NewCreateHandler(usecase *createUC.Usecase) *CreateHandler {
 	return &CreateHandler{usecase: usecase}
 }
 
 func (h *CreateHandler) Handle(c *gin.Context) {
-	var req createReviewRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		common.HandleError(c, err)
-		return
-	}
-
 	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		common.HandleError(c, domain.ErrUnauthorized)
 		return
 	}
 
-	input := create.Input{
+	var req createReviewRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		zap.L().Debug("Invalid JSON in create review request", zap.Error(err))
+		common.HandleError(c, err)
+		return
+	}
+
+	zap.L().Debug("Creating review", zap.Int("userID", userID), zap.Int("courseID", req.CourseID), zap.Int("rating", req.Rating))
+
+	input := createUC.Input{
 		UserID:   userID,
 		CourseID: req.CourseID,
 		Text:     req.Text,
@@ -45,9 +49,11 @@ func (h *CreateHandler) Handle(c *gin.Context) {
 	}
 
 	if err := h.usecase.Execute(c.Request.Context(), input); err != nil {
+		zap.L().Info("Failed to create review", zap.Int("userID", userID), zap.Int("courseID", req.CourseID), zap.Error(err))
 		common.HandleError(c, err)
 		return
 	}
 
+	zap.L().Info("Review created successfully", zap.Int("userID", userID), zap.Int("courseID", req.CourseID))
 	c.Status(http.StatusCreated)
 }

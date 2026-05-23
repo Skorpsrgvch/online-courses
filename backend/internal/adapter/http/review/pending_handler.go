@@ -6,15 +6,16 @@ import (
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/middleware"
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
-	"github.com/Skorpsrgvch/online-courses/internal/usecase/review/pending"
+	pendingUC "github.com/Skorpsrgvch/online-courses/internal/usecase/review/pending"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type PendingHandler struct {
-	usecase *pending.Usecase
+	usecase *pendingUC.Usecase
 }
 
-func NewPendingHandler(usecase *pending.Usecase) *PendingHandler {
+func NewPendingHandler(usecase *pendingUC.Usecase) *PendingHandler {
 	return &PendingHandler{usecase: usecase}
 }
 
@@ -24,9 +25,12 @@ func (h *PendingHandler) Handle(c *gin.Context) {
 		return
 	}
 
-	input := pending.Input{}
+	zap.L().Debug("Fetching pending reviews")
+
+	input := pendingUC.Input{}
 	output, err := h.usecase.Execute(c.Request.Context(), input)
 	if err != nil {
+		zap.L().Error("Failed to fetch pending reviews", zap.Error(err))
 		common.HandleError(c, err)
 		return
 	}

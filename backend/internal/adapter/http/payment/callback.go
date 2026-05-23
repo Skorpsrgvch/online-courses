@@ -5,9 +5,9 @@ import (
 
 	"github.com/Skorpsrgvch/online-courses/internal/usecase/payment/callback"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
-// WebhookRequest структура входящего запроса от ЮKassa
 type WebhookRequest struct {
 	Type   string `json:"type"`
 	Event  string `json:"event"`
@@ -29,6 +29,7 @@ func (h *CallbackHandler) Handle(c *gin.Context) {
 	var req WebhookRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
+		zap.L().Warn("Invalid JSON in payment callback", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
 		return
 	}
@@ -36,7 +37,13 @@ func (h *CallbackHandler) Handle(c *gin.Context) {
 	paymentID := req.Object.ID
 	status := req.Object.Status
 
+	zap.L().Info("Payment callback received",
+		zap.String("payment_id", paymentID),
+		zap.String("status", status),
+		zap.String("event_type", req.Type))
+
 	if paymentID == "" {
+		zap.L().Warn("Callback missing payment_id")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "payment id is missing"})
 		return
 	}
@@ -48,6 +55,7 @@ func (h *CallbackHandler) Handle(c *gin.Context) {
 
 	output, err := h.usecase.Execute(c.Request.Context(), input)
 	if err != nil {
+		zap.L().Error("Payment callback processing failed", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

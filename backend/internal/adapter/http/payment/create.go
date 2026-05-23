@@ -7,6 +7,7 @@ import (
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/middleware"
 	"github.com/Skorpsrgvch/online-courses/internal/usecase/payment/create"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type CreateHandler struct {
@@ -18,24 +19,28 @@ func NewCreateHandler(usecase *create.UseCase) *CreateHandler {
 }
 
 func (h *CreateHandler) Handle(c *gin.Context) {
-	var input create.Input
-	// Парсим только return_url и course_id из тела
-	if err := c.ShouldBindJSON(&input); err != nil {
-		common.HandleError(c, common.HttpError("invalid request body", http.StatusBadRequest))
-		return
-	}
-
-	// Получаем UserID из авторизованного контекста
 	userID := middleware.GetUserID(c)
 	if userID == 0 {
 		common.HandleError(c, common.HttpError("unauthorized", http.StatusUnauthorized))
 		return
 	}
-	input.UserID = userID // Принудительно ставим ID из токена
+
+	var input create.Input
+	if err := c.ShouldBindJSON(&input); err != nil {
+		zap.L().Debug("Invalid JSON in create payment", zap.Error(err))
+		common.HandleError(c, common.HttpError("invalid request body", http.StatusBadRequest))
+		return
+	}
+
+	input.UserID = userID
+
+	zap.L().Info("Creating payment",
+		zap.Int("user_id", userID),
+		zap.Int("course_id", input.CourseID))
 
 	output, err := h.usecase.Execute(c.Request.Context(), input)
 	if err != nil {
-		// Обработка ошибок (уже купил, нет курса и т.д.)
+		zap.L().Warn("Create payment failed", zap.Error(err))
 		common.HandleError(c, err)
 		return
 	}

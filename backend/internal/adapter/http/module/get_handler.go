@@ -5,13 +5,10 @@ import (
 	"strconv"
 
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
-	"github.com/Skorpsrgvch/online-courses/internal/usecase/module/get"
+	getUC "github.com/Skorpsrgvch/online-courses/internal/usecase/module/get"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
-
-type getModulesResponse struct {
-	Modules []moduleDTO `json:"modules"`
-}
 
 type moduleDTO struct {
 	ID    int    `json:"id"`
@@ -20,28 +17,32 @@ type moduleDTO struct {
 }
 
 type GetHandler struct {
-	usecase *get.Usecase
+	usecase *getUC.Usecase
 }
 
-func NewGetHandler(usecase *get.Usecase) *GetHandler {
+func NewGetHandler(usecase *getUC.Usecase) *GetHandler {
 	return &GetHandler{usecase: usecase}
 }
 
 func (h *GetHandler) Handle(c *gin.Context) {
 	courseID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
+		zap.L().Debug("Invalid course ID format", zap.String("id", c.Param("id")), zap.Error(err))
 		common.HandleError(c, common.HttpError("invalid course ID", http.StatusBadRequest))
 		return
 	}
 
-	input := get.Input{CourseID: courseID}
+	zap.L().Debug("Getting modules for course", zap.Int("courseID", courseID))
+
+	input := getUC.Input{CourseID: courseID}
 	output, err := h.usecase.Execute(c.Request.Context(), input)
 	if err != nil {
+		zap.L().Error("Failed to get modules", zap.Int("courseID", courseID), zap.Error(err))
 		common.HandleError(c, err)
 		return
 	}
 
-	var modules []moduleDTO
+	modules := make([]moduleDTO, 0, len(output.Modules))
 	for _, m := range output.Modules {
 		modules = append(modules, moduleDTO{
 			ID:    m.ID,
@@ -50,5 +51,5 @@ func (h *GetHandler) Handle(c *gin.Context) {
 		})
 	}
 
-	c.JSON(http.StatusOK, getModulesResponse{Modules: modules})
+	c.JSON(http.StatusOK, gin.H{"modules": modules})
 }

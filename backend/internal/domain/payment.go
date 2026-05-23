@@ -1,11 +1,9 @@
 package domain
 
 import (
-	"errors"
 	"time"
 )
 
-// PaymentStatus represents the status of a payment
 type PaymentStatus string
 
 const (
@@ -16,13 +14,12 @@ const (
 	PaymentStatusWaitingForCapture PaymentStatus = "waiting_for_capture"
 )
 
-// Payment represents a payment entity
 type Payment struct {
 	ID              int               `json:"id"`
-	PaymentID       string            `json:"payment_id"` // UUID from YooKassa
+	PaymentID       string            `json:"payment_id"`
 	UserID          int               `json:"user_id"`
 	CourseID        int               `json:"course_id"`
-	Amount          int               `json:"amount"` // in kopecks
+	Amount          int               `json:"amount"`
 	Currency        string            `json:"currency"`
 	Status          PaymentStatus     `json:"status"`
 	ConfirmationURL string            `json:"confirmation_url,omitempty"`
@@ -33,7 +30,6 @@ type Payment struct {
 	Metadata        map[string]string `json:"metadata,omitempty"`
 }
 
-// CreatePaymentRequest represents a request to create a payment
 type CreatePaymentRequest struct {
 	UserID      int    `json:"user_id"`
 	CourseID    int    `json:"course_id"`
@@ -43,7 +39,6 @@ type CreatePaymentRequest struct {
 	ReturnURL   string `json:"return_url"`
 }
 
-// PaymentConfirmation represents confirmation data for payment
 type PaymentConfirmation struct {
 	Type              string `json:"type"`
 	ConfirmationToken string `json:"confirmation_token,omitempty"`
@@ -54,16 +49,6 @@ type PaymentConfirmation struct {
 	Locale            string `json:"locale,omitempty"`
 }
 
-// PaymentErrors
-var (
-	ErrPaymentNotFound       = errors.New("payment not found")
-	ErrPaymentExpired        = errors.New("payment expired")
-	ErrPaymentAlreadyPaid    = errors.New("payment already paid")
-	ErrPaymentInvalidStatus  = errors.New("invalid payment status")
-	ErrPaymentCreationFailed = errors.New("failed to create payment")
-)
-
-// NewPayment creates a new payment entity
 func NewPayment(paymentID string, userID, courseID, amount int, currency, description string) *Payment {
 	now := time.Now().UTC()
 	return &Payment{
@@ -79,7 +64,6 @@ func NewPayment(paymentID string, userID, courseID, amount int, currency, descri
 	}
 }
 
-// IsExpired checks if the payment has expired
 func (p *Payment) IsExpired() bool {
 	if p.ExpiresAt == nil {
 		return false
@@ -87,24 +71,20 @@ func (p *Payment) IsExpired() bool {
 	return time.Now().UTC().After(*p.ExpiresAt)
 }
 
-// CanBeCompleted checks if the payment can be completed based on its status
 func (p *Payment) CanBeCompleted() bool {
 	return p.Status == PaymentStatusPending || p.Status == PaymentStatusWaitingForCapture
 }
 
-// SetSucceeded marks the payment as succeeded
 func (p *Payment) SetSucceeded() {
 	now := time.Now().UTC()
 	p.Status = PaymentStatusSucceeded
 	p.PaidAt = &now
 }
 
-// SetCanceled marks the payment as canceled
 func (p *Payment) SetCanceled() {
 	p.Status = PaymentStatusCanceled
 }
 
-// SetFailed marks the payment as failed
 func (p *Payment) SetFailed() {
 	p.Status = PaymentStatusFailed
 }

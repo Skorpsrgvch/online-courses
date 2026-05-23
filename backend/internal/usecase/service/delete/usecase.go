@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
+	"go.uber.org/zap"
 )
 
 type Input struct {
@@ -27,8 +28,18 @@ func NewUsecase(repo ServiceRepo) (*Usecase, error) {
 }
 
 func (u *Usecase) Execute(ctx context.Context, input Input) error {
+	zap.L().Debug("DeleteService started", zap.Int("serviceID", input.ID))
+
 	if input.ID <= 0 {
+		zap.L().Warn("Invalid service ID for deletion", zap.Int("id", input.ID))
 		return domain.ErrInvalidCredentials
 	}
-	return u.repo.Delete(ctx, input.ID)
+
+	if err := u.repo.Delete(ctx, input.ID); err != nil {
+		zap.L().Error("Failed to delete service", zap.Int("serviceID", input.ID), zap.Error(err))
+		return err
+	}
+
+	zap.L().Info("Service deleted successfully", zap.Int("serviceID", input.ID))
+	return nil
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { servicesService } from '../../api/services.service';
 import type { Service } from '../../api/types';
 import { renderParsedText } from '../../utils/textParser';
@@ -22,6 +22,26 @@ const ServicesPage: React.FC = () => {
         loadServices();
     }, []);
 
+    const location = useLocation();
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+
+            const hash = location.hash;
+            if (hash) {
+                const element = document.querySelector(hash);
+                if (element) {
+                    setTimeout(() => {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 50);
+                }
+            }
+        }, 50);
+
+        return () => clearTimeout(timer);
+    }, [location.pathname, location.hash]);
+
     const formatPrice = (price: number): string => {
         return new Intl.NumberFormat('ru-RU', {
             style: 'currency',
@@ -42,9 +62,9 @@ const ServicesPage: React.FC = () => {
         <div className="min-h-screen bg-gray-50 py-12">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <Link to="/#courses" className="inline-flex items-start text-sm md:text-base lg:text-base font-medium text-gray-500! hover:text-rose-500! mb-4 transition-colors"
-                          style={{ textDecoration: 'none' }}>
-                            ← Назад на главную
-                          </Link>
+                    style={{ textDecoration: 'none' }}>
+                    ← Назад на главную
+                </Link>
 
                 {/* Заголовок страницы */}
                 <div className="text-center mb-16">
@@ -96,9 +116,9 @@ const ServicesPage: React.FC = () => {
                                                 {formatPrice(service.price)}
                                             </span>
                                         </div>
-                                        <button 
-                                        onClick={() => window.open('https://vk.com/im/convo/14374433?entrypoint=list_all&tab=all', '_blank')}
-                                        className="px-8 py-3 bg-rose-500 text-white font-semibold rounded-2xl! hover:bg-rose-600 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">
+                                        <button
+                                            onClick={() => window.open('https://vk.com/im/convo/14374433?entrypoint=list_all&tab=all', '_blank')}
+                                            className="px-8 py-3 bg-rose-500 text-white font-semibold rounded-2xl! hover:bg-rose-600 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">
                                             Записаться
                                         </button>
                                     </div>

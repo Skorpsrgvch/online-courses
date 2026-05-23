@@ -2,9 +2,10 @@ package email
 
 import (
 	"fmt"
-	"log"
 	"net/smtp"
 	"os"
+
+	"go.uber.org/zap"
 )
 
 type SMTPSender struct {
@@ -24,21 +25,27 @@ func NewSMTPSender() *SMTPSender {
 		from:     os.Getenv("EMAIL_FROM"),
 	}
 
-	// Логирование конфигурации (пароль не пишем!)
-	log.Printf("[SMTP] Initialized: Host=%s, Port=%s, User=%s, From=%s",
-		sender.host, sender.port, sender.username, sender.from)
+	zap.L().Info("SMTP sender initialized",
+		zap.String("host", sender.host),
+		zap.String("port", sender.port),
+		zap.String("user", sender.username),
+		zap.String("from", sender.from),
+	)
 
 	return sender
 }
 
 func (s *SMTPSender) SendResetCode(to, code string) error {
-	log.Printf("[SMTP] Attempting to send code to: %s", to)
+	zap.L().Debug("Attempting to send reset code", zap.String("to", to))
 
-	// Проверка заполненности полей
 	if s.host == "" || s.port == "" || s.username == "" || s.password == "" || s.from == "" {
-		err := fmt.Errorf("SMTP configuration incomplete: host=%s, port=%s, user=%s, from=%s",
-			s.host, s.port, s.username, s.from)
-		log.Printf("[SMTP] Error: %v", err)
+		err := fmt.Errorf("SMTP configuration incomplete")
+		zap.L().Error("SMTP configuration error",
+			zap.String("host", s.host),
+			zap.String("port", s.port),
+			zap.String("user", s.username),
+			zap.String("from", s.from),
+		)
 		return err
 	}
 
@@ -62,16 +69,17 @@ func (s *SMTPSender) SendResetCode(to, code string) error {
 		"%s", s.from, to, subject, body)
 
 	addr := fmt.Sprintf("%s:%s", s.host, s.port)
-	log.Printf("[SMTP] Connecting to %s...", addr)
 
 	auth := smtp.PlainAuth("", s.username, s.password, s.host)
 
-	err := smtp.SendMail(addr, auth, s.from, []string{to}, []byte(msg))
-	if err != nil {
-		log.Printf("[SMTP] Failed to send email to %s: %v", to, err)
+	if err := smtp.SendMail(addr, auth, s.from, []string{to}, []byte(msg)); err != nil {
+		zap.L().Error("Failed to send email",
+			zap.String("to", to),
+			zap.Error(err),
+		)
 		return fmt.Errorf("failed to send email: %w", err)
 	}
 
-	log.Printf("[SMTP] Successfully sent code to %s", to)
+	zap.L().Info("Reset code sent successfully", zap.String("to", to))
 	return nil
 }

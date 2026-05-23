@@ -7,6 +7,7 @@ import (
 
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
+	"go.uber.org/zap"
 )
 
 type Input struct {
@@ -38,13 +39,16 @@ func NewUsecase(userRepo UserRepo) (*Usecase, error) {
 }
 
 func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
+	zap.L().Debug("UpdateProfile started", zap.Int("userID", input.UserID))
+
 	if input.UserID <= 0 {
 		return nil, errors.New("некорректный ID пользователя")
 	}
 
 	// 1. Проверяем существование пользователя
-	user, err := u.userRepo.GetUserByID(ctx, input.UserID) // Изменено на GetUserByID
+	user, err := u.userRepo.GetUserByID(ctx, input.UserID)
 	if err != nil {
+		zap.L().Warn("User not found for update", zap.Int("userID", input.UserID), zap.Error(err))
 		return nil, errors.New("пользователь не найден")
 	}
 
@@ -57,7 +61,9 @@ func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
 			return nil, errors.New("имя не может быть пустым")
 		}
 		if cleanName != user.Name {
+			zap.L().Debug("Updating user name", zap.String("old", user.Name), zap.String("new", cleanName))
 			if err := u.userRepo.UpdateName(ctx, input.UserID, cleanName); err != nil {
+				zap.L().Error("Failed to update name", zap.Error(err))
 				return nil, errors.New("ошибка при обновлении имени")
 			}
 			updated = true
@@ -74,20 +80,23 @@ func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
 			// Проверяем, не занят ли email другим пользователем
 			existingUser, err := u.userRepo.GetUserByEmailForCheck(ctx, cleanEmail)
 			if err != nil && !errors.Is(err, domain.ErrUserNotFound) {
+				zap.L().Error("Error checking email availability", zap.Error(err))
 				return nil, errors.New("ошибка проверки email")
 			}
 
-			// Если пользователь найден И это не текущий пользователь (на всякий случай)
+			// Если пользователь найден И это не текущий пользователь
 			if existingUser != nil && existingUser.ID != input.UserID {
+				zap.L().Info("Email already taken", zap.String("email", cleanEmail))
 				return nil, errors.New("этот email уже занят другим пользователем")
 			}
 
 			// Пытаемся обновить
+			zap.L().Debug("Updating user email", zap.String("old", user.Email), zap.String("new", cleanEmail))
 			if err := u.userRepo.UpdateEmail(ctx, input.UserID, cleanEmail); err != nil {
-				// Если репозиторий вернул ошибку про дубликат, пробрасываем её как BadRequest
 				if strings.Contains(err.Error(), "already exists") {
 					return nil, common.BadRequestError("этот email уже зарегистрирован")
 				}
+				zap.L().Error("Failed to update email", zap.Error(err))
 				return nil, errors.New("ошибка при обновлении email")
 			}
 			updated = true
@@ -95,8 +104,10 @@ func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
 	}
 
 	if !updated {
+		zap.L().Info("No changes detected in profile update", zap.Int("userID", input.UserID))
 		return &Output{Message: "Нет данных для обновления"}, nil
 	}
 
+	zap.L().Info("Profile updated successfully", zap.Int("userID", input.UserID))
 	return &Output{Message: "Профиль успешно обновлен"}, nil
 }

@@ -3,51 +3,61 @@ package update
 import (
 	"context"
 	"errors"
-	"log"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
+	"go.uber.org/zap"
 )
+
+type CourseRepository interface {
+	Update(ctx context.Context, course *domain.Course) error
+	UpdateStatus(ctx context.Context, id int, isActive bool) error
+}
+
+type Usecase struct {
+	repo CourseRepository
+}
 
 func NewUsecase(repo CourseRepository) (*Usecase, error) {
 	if repo == nil {
 		return nil, errors.New("course repository is required")
 	}
-	return &Usecase{repo: repo}, nil
+	return &Usecase{
+		repo: repo,
+	}, nil
 }
 
 func (u *Usecase) Execute(ctx context.Context, course *domain.Course) error {
-	log.Printf("[INFO] Usecase.Execute: starting update for course ID=%d", course.ID)
+	zap.L().Info("Updating course", zap.Int("course_id", course.ID))
 
 	if course == nil || course.ID == 0 {
 		err := errors.New("invalid course data")
-		log.Printf("[ERROR] Usecase.Execute: validation failed - %v", err)
+		zap.L().Warn("Update validation failed", zap.Error(err))
 		return err
 	}
 
 	if err := u.repo.Update(ctx, course); err != nil {
-		log.Printf("[ERROR] Usecase.Execute: repo update failed - %v", err)
+		zap.L().Error("Course update failed", zap.Int("course_id", course.ID), zap.Error(err))
 		return err
 	}
 
-	log.Printf("[INFO] Usecase.Execute: finished successfully for course ID=%d", course.ID)
+	zap.L().Info("Course updated successfully", zap.Int("course_id", course.ID))
 	return nil
 }
 
-// UpdateStatus переключает статус активности курса
 func (u *Usecase) UpdateStatus(ctx context.Context, id int, isActive bool) error {
-	log.Printf("[INFO] Usecase.UpdateStatus: starting for course ID=%d, target IsActive=%v", id, isActive)
+	zap.L().Info("Updating course status", zap.Int("course_id", id), zap.Bool("is_active", isActive))
 
 	if id == 0 {
 		err := errors.New("invalid course ID")
-		log.Printf("[ERROR] Usecase.UpdateStatus: validation failed - %v", err)
+		zap.L().Warn("Status update validation failed", zap.Error(err))
 		return err
 	}
 
 	if err := u.repo.UpdateStatus(ctx, id, isActive); err != nil {
-		log.Printf("[ERROR] Usecase.UpdateStatus: repo update failed - %v", err)
+		zap.L().Error("Course status update failed", zap.Int("course_id", id), zap.Error(err))
 		return err
 	}
 
-	log.Printf("[INFO] Usecase.UpdateStatus: finished successfully for course ID=%d", id)
+	zap.L().Info("Course status updated", zap.Int("course_id", id))
 	return nil
 }

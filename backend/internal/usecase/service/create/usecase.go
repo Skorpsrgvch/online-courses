@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
+	"go.uber.org/zap"
 )
 
 type Input struct {
@@ -30,7 +31,10 @@ func NewUsecase(repo ServiceRepo) (*Usecase, error) {
 }
 
 func (u *Usecase) Execute(ctx context.Context, input Input) error {
+	zap.L().Debug("CreateService started", zap.String("title", input.Title))
+
 	if input.Title == "" || input.Price < 0 {
+		zap.L().Warn("Validation failed for service creation", zap.String("title", input.Title), zap.Int("price", input.Price))
 		return domain.ErrInvalidCredentials
 	}
 
@@ -41,5 +45,11 @@ func (u *Usecase) Execute(ctx context.Context, input Input) error {
 		Duration:    input.Duration,
 	}
 
-	return u.repo.Create(ctx, service)
+	if err := u.repo.Create(ctx, service); err != nil {
+		zap.L().Error("Failed to create service", zap.Error(err))
+		return err
+	}
+
+	zap.L().Info("Service created successfully", zap.Int("serviceID", service.ID))
+	return nil
 }

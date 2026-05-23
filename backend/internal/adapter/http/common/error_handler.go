@@ -2,11 +2,11 @@ package common
 
 import (
 	"errors"
-	"log"
 	"net/http"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type httpError struct {
@@ -17,32 +17,34 @@ type httpError struct {
 func (e httpError) Error() string { return e.msg }
 func (e httpError) Status() int   { return e.status }
 
-// HttpError создает новую HTTP ошибку
 func HttpError(msg string, status int) error {
 	return httpError{msg: msg, status: status}
 }
 
-// BadRequestError удобная обертка для ошибок 400
 func BadRequestError(msg string) error {
 	return HttpError(msg, http.StatusBadRequest)
 }
 
-// HandleError централизованная обработка ошибок
 func HandleError(c *gin.Context, err error) {
-	// 1. Проверяем, является ли ошибка уже готовой HTTP ошибкой (наш кастомный тип)
+	if err == nil {
+		return
+	}
+
+	// Проверка на наш кастомный HTTP error
 	if httpErr, ok := err.(interface{ Status() int }); ok {
+		if httpErr.Status() >= 500 {
+			zap.L().Error("HTTP Error", zap.Int("status", httpErr.Status()), zap.String("message", err.Error()))
+		}
 		c.AbortWithStatusJSON(httpErr.Status(), gin.H{"error": err.Error()})
 		return
 	}
 
-	// 2. Сопоставление domain-ошибок
+	// Сопоставление domain-ошибок
 	switch {
 	case errors.Is(err, domain.ErrInvalidCredentials):
-		// Это самый важный кейс для логина
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Неверный email или пароль"})
 
 	case errors.Is(err, domain.ErrUserNotFound):
-		// На случай если где-то отдельно пробрасывается эта ошибка
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Пользователь не найден"})
 
 	case errors.Is(err, domain.ErrAccessDenied):
@@ -64,12 +66,12 @@ func HandleError(c *gin.Context, err error) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Некорректный статус платежа"})
 
 	case errors.Is(err, domain.ErrPaymentCreationFailed):
+		zap.L().Error("Payment creation failed", zap.Error(err))
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Ошибка создания платежа"})
 
 	default:
-		// Логируем неизвестную ошибку для разработчика
-		log.Printf("Unhandled error in handler: %v", err)
-		// Клиенту показываем общую фразу, чтобы не светить детали реализации
+		// Логируем неизвестную ошибку как ERROR
+		zap.L().Error("Unhandled error in handler", zap.Error(err))
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Внутренняя ошибка сервера"})
 	}
 }

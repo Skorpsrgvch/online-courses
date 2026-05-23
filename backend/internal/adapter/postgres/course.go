@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"log"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
+	"go.uber.org/zap"
 )
 
 type CourseRepo struct {
@@ -18,27 +18,30 @@ func NewCourseRepo(db *sql.DB) *CourseRepo {
 	return &CourseRepo{db: db}
 }
 
-func scanCourseHelper(row *sql.Row) (*domain.Course, error) {
+// scanCourse универсальная функция для сканирования строки курса из Row или Rows
+func scanCourse(scanner interface{}) (*domain.Course, error) {
 	var c domain.Course
 	var bonusesRaw []byte
 	var coverURL, contraindications, recommendations, targetAudience, courseBasis, classBasis sql.NullString
 
-	err := row.Scan(
-		&c.ID,
-		&c.Title,
-		&c.Description,
-		&c.IsPublic,
-		&c.Price,
-		&c.AuthorID,
-		&c.IsActive,
-		&coverURL,
-		&contraindications,
-		&recommendations,
-		&targetAudience,
-		&courseBasis,
-		&classBasis,
-		&bonusesRaw,
-	)
+	var err error
+	switch v := scanner.(type) {
+	case *sql.Row:
+		err = v.Scan(
+			&c.ID, &c.Title, &c.Description, &c.IsPublic, &c.Price, &c.AuthorID, &c.IsActive,
+			&coverURL, &contraindications, &recommendations, &targetAudience, &courseBasis, &classBasis,
+			&bonusesRaw,
+		)
+	case *sql.Rows:
+		err = v.Scan(
+			&c.ID, &c.Title, &c.Description, &c.IsPublic, &c.Price, &c.AuthorID, &c.IsActive,
+			&coverURL, &contraindications, &recommendations, &targetAudience, &courseBasis, &classBasis,
+			&bonusesRaw,
+		)
+	default:
+		return nil, errors.New("invalid scanner type")
+	}
+
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrCourseNotFound
@@ -46,6 +49,7 @@ func scanCourseHelper(row *sql.Row) (*domain.Course, error) {
 		return nil, err
 	}
 
+	// Обработка NULL полей
 	if coverURL.Valid {
 		c.CoverImageURL = coverURL.String
 	}
@@ -65,12 +69,17 @@ func scanCourseHelper(row *sql.Row) (*domain.Course, error) {
 		c.ClassBasis = classBasis.String
 	}
 
+	// Парсинг JSON бонусов
+	c.Bonuses = make([]domain.BonusItem, 0)
 	if len(bonusesRaw) > 0 {
 		if err := json.Unmarshal(bonusesRaw, &c.Bonuses); err != nil {
-			c.Bonuses = []domain.BonusItem{}
+			zap.L().Warn("Failed to unmarshal course bonuses",
+				zap.Int("course_id", c.ID),
+				zap.Error(err),
+			)
+			// Возвращаем пустой слайс вместо ошибки, чтобы не ломать поток
+			c.Bonuses = make([]domain.BonusItem, 0)
 		}
-	} else {
-		c.Bonuses = []domain.BonusItem{}
 	}
 
 	return &c, nil
@@ -87,39 +96,110 @@ func (r *CourseRepo) GetByID(ctx context.Context, id int) (*domain.Course, error
 		       COALESCE(class_basis, ''),
 		       COALESCE(bonuses, '[]'::jsonb)
 		FROM courses
-		WHERE id = $1 
+		WHERE id = $1
 	`
+
 	row := r.db.QueryRowContext(ctx, query, id)
-	return scanCourseHelper(row)
+	return scanCourse(row)
+}
+
+func (r *CourseRepo) ListAll(ctx context.Context) ([]*domain.Course, error) {
+	query := `
+		SELECT id, title, description, is_public, price, author_id, is_active,
+		       COALESCE(cover_image_url, ''),
+		       COALESCE(contraindications, ''),
+		       COALESCE(recommendations, ''),
+		       COALESCE(target_audience, ''),
+		       COALESCE(course_basis, ''),
+		       COALESCE(class_basis, ''),
+		       COALESCE(bonuses, '[]'::jsonb)
+		FROM courses
+		WHERE is_active = true
+		ORDER BY id
+	`
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		zap.L().Error("Failed to execute ListAll query", zap.Error(err))
+		return nil, err
+	}
+	defer rows.Close()
+
+	courses := make([]*domain.Course, 0)
+	for rows.Next() {
+		course, err := scanCourse(rows)
+		if err != nil {
+			return nil, err
+		}
+		courses = append(courses, course)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return courses, nil
+}
+
+func (r *CourseRepo) GetAllWithInactive(ctx context.Context) ([]*domain.Course, error) {
+	query := `
+		SELECT id, title, description, is_public, price, author_id, is_active,
+		       COALESCE(cover_image_url, ''), 
+		       COALESCE(contraindications, ''), 
+		       COALESCE(recommendations, ''),
+		       COALESCE(target_audience, ''),
+		       COALESCE(course_basis, ''),
+		       COALESCE(class_basis, ''),
+		       COALESCE(bonuses, '[]'::jsonb)
+		FROM courses
+		ORDER BY created_at DESC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	courses := make([]*domain.Course, 0)
+	for rows.Next() {
+		course, err := scanCourse(rows)
+		if err != nil {
+			return nil, err
+		}
+		courses = append(courses, course)
+	}
+
+	return courses, rows.Err()
 }
 
 func (r *CourseRepo) Save(ctx context.Context, course *domain.Course) error {
+	bonusesJSON, err := json.Marshal(course.Bonuses)
+	if err != nil {
+		zap.L().Error("Failed to marshal course bonuses", zap.Error(err))
+		return err
+	}
+
 	query := `
 		INSERT INTO courses (title, description, is_public, price, author_id, is_active, cover_image_url, contraindications, recommendations, target_audience, course_basis, class_basis, bonuses)
 		VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''), $8, $9, $10, $11, $12, $13)
 		RETURNING id
 	`
 
-	bonusesJSON, err := json.Marshal(course.Bonuses)
+	err = r.db.QueryRowContext(ctx, query,
+		course.Title, course.Description, course.IsPublic, course.Price,
+		course.AuthorID, course.IsActive, course.CoverImageURL,
+		course.Contraindications, course.Recommendations, course.TargetAudience,
+		course.CourseBasis, course.ClassBasis, bonusesJSON,
+	).Scan(&course.ID)
+
 	if err != nil {
+		zap.L().Error("Failed to save course", zap.String("title", course.Title), zap.Error(err))
 		return err
 	}
 
-	return r.db.QueryRowContext(ctx, query,
-		course.Title,
-		course.Description,
-		course.IsPublic,
-		course.Price,
-		course.AuthorID,
-		course.IsActive,
-		course.CoverImageURL,
-		course.Contraindications,
-		course.Recommendations,
-		course.TargetAudience,
-		course.CourseBasis,
-		course.ClassBasis,
-		bonusesJSON,
-	).Scan(&course.ID)
+	zap.L().Info("Course saved successfully", zap.Int("id", course.ID))
+	return nil
 }
 
 func (r *CourseRepo) Update(ctx context.Context, course *domain.Course) error {
@@ -141,60 +221,51 @@ func (r *CourseRepo) Update(ctx context.Context, course *domain.Course) error {
 		WHERE id = $13
 	`
 
-	log.Printf("[DEBUG] Repo.Update: executing SQL for course ID=%d", course.ID)
-	_, err = r.db.ExecContext(ctx, query,
-		course.Title,
-		course.Description,
-		course.IsPublic,
-		course.Price,
-		course.IsActive,
-		course.CoverImageURL,
-		course.Contraindications,
-		course.Recommendations,
-		course.TargetAudience,
-		course.CourseBasis,
-		course.ClassBasis,
-		bonusesJSON,
-		course.ID,
+	res, err := r.db.ExecContext(ctx, query,
+		course.Title, course.Description, course.IsPublic, course.Price, course.IsActive,
+		course.CoverImageURL, course.Contraindications, course.Recommendations,
+		course.TargetAudience, course.CourseBasis, course.ClassBasis, bonusesJSON, course.ID,
 	)
 
 	if err != nil {
-		log.Printf("[ERROR] Repo.Update: SQL execution failed for course ID=%d: %v", course.ID, err)
+		zap.L().Error("Failed to update course", zap.Int("id", course.ID), zap.Error(err))
 		return err
 	}
-	log.Printf("[INFO] Repo.Update: successfully updated course ID=%d", course.ID)
-	return err
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		zap.L().Warn("Could not get rows affected after update", zap.Int("id", course.ID), zap.Error(err))
+	} else if rowsAffected == 0 {
+		zap.L().Warn("Update affected 0 rows, course may not exist", zap.Int("id", course.ID))
+		return domain.ErrCourseNotFound
+	}
+
+	zap.L().Debug("Course updated", zap.Int("id", course.ID))
+	return nil
 }
 
-// UpdateStatus быстро переключает только флаг is_active
 func (r *CourseRepo) UpdateStatus(ctx context.Context, id int, isActive bool) error {
 	query := `UPDATE courses SET is_active = $1 WHERE id = $2`
 
-	log.Printf("[DEBUG] Repo.UpdateStatus: executing SQL: %s with params (isActive=%v, id=%d)", query, isActive, id)
-
-	result, err := r.db.ExecContext(ctx, query, isActive, id)
+	res, err := r.db.ExecContext(ctx, query, isActive, id)
 	if err != nil {
-		log.Printf("[ERROR] Repo.UpdateStatus: SQL execution failed for course ID=%d: %v", id, err)
+		zap.L().Error("Failed to update course status", zap.Int("id", id), zap.Error(err))
 		return err
 	}
 
-	rowsAffected, err := result.RowsAffected()
+	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		log.Printf("[WARN] Repo.UpdateStatus: could not get rows affected: %v", err)
-	} else {
-		log.Printf("[INFO] Repo.UpdateStatus: rows affected=%d for course ID=%d", rowsAffected, id)
-		if rowsAffected == 0 {
-			log.Printf("[WARN] Repo.UpdateStatus: no course found with ID=%d", id)
-		}
+		zap.L().Warn("Could not get rows affected", zap.Int("id", id), zap.Error(err))
+	} else if rowsAffected == 0 {
+		zap.L().Warn("No course found for status update", zap.Int("id", id))
+		return domain.ErrCourseNotFound
 	}
 
+	zap.L().Info("Course status updated", zap.Int("id", id), zap.Bool("is_active", isActive))
 	return nil
 }
 
 func (r *CourseRepo) SetInactive(ctx context.Context, courseID int) error {
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE courses SET is_active = false WHERE id = $1`,
-		courseID,
-	)
-	return err
+	// Можно использовать UpdateStatus, но оставим как отдельный метод для явности
+	return r.UpdateStatus(ctx, courseID, false)
 }

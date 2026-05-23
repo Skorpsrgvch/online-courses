@@ -5,7 +5,6 @@ import (
 
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/middleware"
-	"github.com/Skorpsrgvch/online-courses/internal/domain"
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,7 +17,7 @@ func NewMeHandler() *MeHandler {
 func (h *MeHandler) Handle(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 	if userID == 0 {
-		common.HandleError(c, domain.ErrUnauthorized)
+		common.HandleError(c, common.HttpError("unauthorized", http.StatusUnauthorized))
 		return
 	}
 

@@ -6,24 +6,22 @@ import (
 )
 
 type User struct {
-	ID        int
-	Email     string
-	Name      string
-	Role      string // "admin" / "user"
-	CreatedAt time.Time
+	ID        int       `json:"id"`
+	Email     string    `json:"email"`
+	Name      string    `json:"name"`
+	Role      string    `json:"role"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
-// NewUser создаёт нового пользователя.
-// Валидирует только формат данных, НЕ проверяет существование в БД.
 func NewUser(email, name, role string) (*User, error) {
 	if email == "" {
-		return nil, fmt.Errorf("email is required")
+		return nil, fmt.Errorf("email is required: %w", ErrInvalidInput)
 	}
 	if name == "" {
-		return nil, fmt.Errorf("name is required")
+		return nil, fmt.Errorf("name is required: %w", ErrInvalidInput)
 	}
 	if role != "admin" && role != "user" {
-		return nil, fmt.Errorf("invalid role: %s", role)
+		return nil, fmt.Errorf("invalid role '%s': %w", role, ErrInvalidInput)
 	}
 	return &User{
 		Email:     email,
@@ -33,7 +31,6 @@ func NewUser(email, name, role string) (*User, error) {
 	}, nil
 }
 
-// RestoreUser восстанавливает пользователя из данных БД
 func RestoreUser(id int, email, name, role string, createdAt time.Time) *User {
 	return &User{
 		ID:        id,

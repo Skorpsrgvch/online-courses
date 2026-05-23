@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
+	"go.uber.org/zap"
 )
 
 type Input struct {
@@ -32,23 +33,33 @@ func NewUsecase(repo ServiceRepo) (*Usecase, error) {
 }
 
 func (u *Usecase) Execute(ctx context.Context, input Input) error {
+	zap.L().Debug("UpdateService started", zap.Int("serviceID", input.ID))
+
 	if input.ID <= 0 {
+		zap.L().Warn("Invalid service ID for update", zap.Int("id", input.ID))
 		return domain.ErrInvalidCredentials
 	}
 
 	existing, err := u.repo.GetByID(ctx, input.ID)
 	if err != nil {
+		zap.L().Error("Failed to find existing service", zap.Int("serviceID", input.ID), zap.Error(err))
 		return err
 	}
 	if existing == nil {
+		zap.L().Warn("Service not found for update", zap.Int("serviceID", input.ID))
 		return domain.ErrServiceNotFound
 	}
 
-	// Обновляем поля
 	existing.Title = input.Title
 	existing.Price = input.Price
 	existing.Description = input.Description
 	existing.Duration = input.Duration
 
-	return u.repo.Update(ctx, existing)
+	if err := u.repo.Update(ctx, existing); err != nil {
+		zap.L().Error("Failed to update service", zap.Int("serviceID", input.ID), zap.Error(err))
+		return err
+	}
+
+	zap.L().Info("Service updated successfully", zap.Int("serviceID", input.ID))
+	return nil
 }

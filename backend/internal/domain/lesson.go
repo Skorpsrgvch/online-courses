@@ -14,13 +14,11 @@ type Lesson struct {
 
 func NewLesson(title, description, videoEmbedID string, moduleID, order int, privateKey *string) (*Lesson, error) {
 	if title == "" {
-		return nil, fmt.Errorf("lesson title is required")
+		return nil, fmt.Errorf("title is required: %w", ErrInvalidInput)
 	}
-
 	if videoEmbedID == "" {
-		return nil, fmt.Errorf("video embed ID is required")
+		return nil, fmt.Errorf("video embed ID is required: %w", ErrInvalidInput)
 	}
-
 	return &Lesson{
 		Title:        title,
 		Description:  description,
@@ -31,7 +29,6 @@ func NewLesson(title, description, videoEmbedID string, moduleID, order int, pri
 	}, nil
 }
 
-// RestoreLesson используется для восстановления объекта из базы данных
 func RestoreLesson(id, moduleID, order int, title, description, videoEmbedID string, privateKey *string) *Lesson {
 	return &Lesson{
 		ID:           id,

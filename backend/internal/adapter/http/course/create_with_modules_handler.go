@@ -6,9 +6,10 @@ import (
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/middleware"
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
-	"github.com/Skorpsrgvch/online-courses/internal/usecase/course/create"
-	createwithmodules "github.com/Skorpsrgvch/online-courses/internal/usecase/course/createwithmodules"
+	createUC "github.com/Skorpsrgvch/online-courses/internal/usecase/course/create"
+	createWithModulesUC "github.com/Skorpsrgvch/online-courses/internal/usecase/course/createwithmodules"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type moduleRequest struct {
@@ -41,33 +42,33 @@ type createCourseWithModulesRequest struct {
 }
 
 type CreateWithModulesHandler struct {
-	usecase *createwithmodules.Usecase
+	usecase *createWithModulesUC.Usecase
 }
 
-func NewCreateWithModulesHandler(usecase *createwithmodules.Usecase) *CreateWithModulesHandler {
+func NewCreateWithModulesHandler(usecase *createWithModulesUC.Usecase) *CreateWithModulesHandler {
 	return &CreateWithModulesHandler{usecase: usecase}
 }
 
 func (h *CreateWithModulesHandler) Handle(c *gin.Context) {
+	if !middleware.RequireAdmin(c) {
+		common.HandleError(c, domain.ErrAccessDenied)
+		return
+	}
+
 	var req createCourseWithModulesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.HandleError(c, err)
 		return
 	}
 
-	if !middleware.RequireAdmin(c) {
-		common.HandleError(c, domain.ErrAccessDenied)
-		return
-	}
-
 	userID := middleware.GetUserID(c)
+	zap.L().Info("Create course with modules request", zap.Int("authorID", userID), zap.String("title", req.Title), zap.Int("modulesCount", len(req.Modules)))
 
-	// Конвертируем модули из запроса в domain
-	modules := make([]create.ModuleInput, len(req.Modules))
+	modules := make([]createUC.ModuleInput, len(req.Modules))
 	for i, mod := range req.Modules {
-		lessons := make([]create.LessonInput, len(mod.Lessons))
+		lessons := make([]createUC.LessonInput, len(mod.Lessons))
 		for j, l := range mod.Lessons {
-			lessons[j] = create.LessonInput{
+			lessons[j] = createUC.LessonInput{
 				Title:        l.Title,
 				Description:  l.Description,
 				VideoEmbedID: l.VideoEmbedID,
@@ -75,14 +76,14 @@ func (h *CreateWithModulesHandler) Handle(c *gin.Context) {
 				Order:        l.Order,
 			}
 		}
-		modules[i] = create.ModuleInput{
+		modules[i] = createUC.ModuleInput{
 			Title:   mod.Title,
 			Order:   mod.Order,
 			Lessons: lessons,
 		}
 	}
 
-	input := createwithmodules.Input{
+	input := createWithModulesUC.Input{
 		Title:             req.Title,
 		Description:       req.Description,
 		IsPublic:          req.IsPublic,
@@ -99,9 +100,11 @@ func (h *CreateWithModulesHandler) Handle(c *gin.Context) {
 	}
 
 	if err := h.usecase.Execute(c.Request.Context(), input); err != nil {
+		zap.L().Error("Create course with modules failed", zap.Int("authorID", userID), zap.Error(err))
 		common.HandleError(c, err)
 		return
 	}
 
+	zap.L().Info("Course with modules created successfully", zap.Int("authorID", userID), zap.String("title", req.Title))
 	c.Status(http.StatusCreated)
 }

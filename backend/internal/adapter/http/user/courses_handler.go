@@ -1,7 +1,6 @@
 package user
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
@@ -9,6 +8,7 @@ import (
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
 	usercourses "github.com/Skorpsrgvch/online-courses/internal/usecase/user/courses"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type CoursesHandler struct {
@@ -29,8 +29,7 @@ func (h *CoursesHandler) Handle(c *gin.Context) {
 	input := usercourses.Input{UserID: userID}
 	output, err := h.usecase.Execute(c.Request.Context(), input)
 	if err != nil {
-		// Логируем ошибку для отладки
-		log.Printf("user/courses error: %v", err)
+		zap.L().Error("Failed to get user courses", zap.Int("user_id", userID), zap.Error(err))
 		common.HandleError(c, err)
 		return
 	}

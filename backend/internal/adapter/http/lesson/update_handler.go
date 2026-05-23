@@ -6,8 +6,9 @@ import (
 
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/middleware"
-	"github.com/Skorpsrgvch/online-courses/internal/usecase/lesson/update"
+	updateUC "github.com/Skorpsrgvch/online-courses/internal/usecase/lesson/update"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type updateLessonRequest struct {
@@ -19,10 +20,10 @@ type updateLessonRequest struct {
 }
 
 type UpdateHandler struct {
-	usecase *update.Usecase
+	usecase *updateUC.Usecase
 }
 
-func NewUpdateHandler(usecase *update.Usecase) *UpdateHandler {
+func NewUpdateHandler(usecase *updateUC.Usecase) *UpdateHandler {
 	return &UpdateHandler{usecase: usecase}
 }
 
@@ -32,19 +33,24 @@ func (h *UpdateHandler) Handle(c *gin.Context) {
 		return
 	}
 
-	lessonID, err := strconv.Atoi(c.Param("id"))
+	idStr := c.Param("id")
+	lessonID, err := strconv.Atoi(idStr)
 	if err != nil {
+		zap.L().Debug("Invalid lesson ID format", zap.String("id", idStr), zap.Error(err))
 		common.HandleError(c, common.HttpError("invalid lesson ID", http.StatusBadRequest))
 		return
 	}
 
 	var req updateLessonRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		zap.L().Debug("Invalid JSON in update lesson request", zap.Error(err))
 		common.HandleError(c, err)
 		return
 	}
 
-	input := update.Input{
+	zap.L().Info("Updating lesson", zap.Int("lessonID", lessonID))
+
+	input := updateUC.Input{
 		ID:           lessonID,
 		Title:        req.Title,
 		Description:  req.Description,
@@ -54,9 +60,11 @@ func (h *UpdateHandler) Handle(c *gin.Context) {
 	}
 
 	if err := h.usecase.Execute(c.Request.Context(), input); err != nil {
+		zap.L().Error("Failed to update lesson", zap.Int("lessonID", lessonID), zap.Error(err))
 		common.HandleError(c, err)
 		return
 	}
 
+	zap.L().Info("Lesson updated successfully", zap.Int("lessonID", lessonID))
 	c.Status(http.StatusOK)
 }

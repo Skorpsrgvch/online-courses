@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/Skorpsrgvch/online-courses/internal/domain"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -19,7 +19,6 @@ type Output struct {
 }
 
 type UserRepo interface {
-	GetUserByID(ctx context.Context, id int) (*domain.User, error) // Можно добавить для проверки существования, но GetPasswordHash тоже ок
 	GetPasswordHash(ctx context.Context, userID int) (string, error)
 	UpdatePassword(ctx context.Context, userID int, hash string) error
 }
@@ -36,6 +35,8 @@ func NewUsecase(userRepo UserRepo) (*Usecase, error) {
 }
 
 func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
+	zap.L().Debug("ChangePassword started", zap.Int("userID", input.UserID))
+
 	if input.UserID <= 0 {
 		return nil, errors.New("некорректный ID пользователя")
 	}
@@ -51,25 +52,30 @@ func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
 	// 1. Получаем хеш старого пароля
 	currentHash, err := u.userRepo.GetPasswordHash(ctx, input.UserID)
 	if err != nil {
+		zap.L().Warn("Failed to get password hash", zap.Int("userID", input.UserID), zap.Error(err))
 		// Скрываем детальную ошибку, чтобы не раскрывать существование пользователя
 		return nil, errors.New("неверный текущий пароль")
 	}
 
 	// 2. Сравниваем пароли
 	if err := bcrypt.CompareHashAndPassword([]byte(currentHash), []byte(input.OldPassword)); err != nil {
+		zap.L().Warn("Invalid old password provided", zap.Int("userID", input.UserID))
 		return nil, errors.New("неверный текущий пароль")
 	}
 
 	// 3. Хешируем новый пароль
 	newHash, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
+		zap.L().Error("Failed to generate password hash", zap.Error(err))
 		return nil, errors.New("ошибка генерации хеша")
 	}
 
 	// 4. Сохраняем
 	if err := u.userRepo.UpdatePassword(ctx, input.UserID, string(newHash)); err != nil {
+		zap.L().Error("Failed to update password in DB", zap.Int("userID", input.UserID), zap.Error(err))
 		return nil, errors.New("ошибка сохранения нового пароля")
 	}
 
+	zap.L().Info("Password changed successfully", zap.Int("userID", input.UserID))
 	return &Output{Message: "Пароль успешно изменен"}, nil
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
+	"go.uber.org/zap"
 )
 
 type Input struct {
@@ -21,6 +22,14 @@ type Usecase struct {
 	finder  LessonFinder
 }
 
+type LessonUpdater interface {
+	Update(ctx context.Context, lesson *domain.Lesson) error
+}
+
+type LessonFinder interface {
+	GetByID(ctx context.Context, id int) (*domain.Lesson, error)
+}
+
 func NewUsecase(updater LessonUpdater, finder LessonFinder) (*Usecase, error) {
 	if updater == nil || finder == nil {
 		return nil, errors.New("dependencies required")
@@ -29,8 +38,11 @@ func NewUsecase(updater LessonUpdater, finder LessonFinder) (*Usecase, error) {
 }
 
 func (u *Usecase) Execute(ctx context.Context, input Input) error {
+	zap.L().Debug("UpdateLesson started", zap.Int("lessonID", input.ID))
+
 	existing, err := u.finder.GetByID(ctx, input.ID)
 	if err != nil {
+		zap.L().Error("Failed to find existing lesson", zap.Int("lessonID", input.ID), zap.Error(err))
 		return err
 	}
 
@@ -43,5 +55,12 @@ func (u *Usecase) Execute(ctx context.Context, input Input) error {
 		input.VideoEmbedID,
 		input.PrivateKey,
 	)
-	return u.updater.Update(ctx, updated)
+
+	if err := u.updater.Update(ctx, updated); err != nil {
+		zap.L().Error("Failed to update lesson", zap.Int("lessonID", input.ID), zap.Error(err))
+		return err
+	}
+
+	zap.L().Info("Lesson updated successfully", zap.Int("lessonID", input.ID))
+	return nil
 }

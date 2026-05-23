@@ -1,47 +1,34 @@
--- 1. Удаляем покупки пользователей
-DELETE FROM user_purchases
-WHERE user_id IN (SELECT id FROM users WHERE email IN ('admin@test.ru', 'user@test.ru'));
+BEGIN;
 
--- 2. Удаляем уроки всех тестовых курсов
-DELETE FROM lessons
-WHERE module_id IN (
-  SELECT id FROM modules WHERE course_id IN (
-    SELECT id FROM courses WHERE title IN (
-      'Женский курс', 
-      'Введение в женское здоровье', 
-      'Восстановление после родов',
-      'Питание во время беременности',
-      'Йога для беременных',
-      'Психология материнства'
-    )
-  )
+DELETE FROM users
+WHERE email IN (
+    'admin@test.ru',
+    'user1@test.ru',
+    'user2@test.ru',
+    'user3@test.ru',
+    'user4@test.ru',
+    'user@test.ru' -- На случай старых данных
 );
 
--- 3. Удаляем модули всех тестовых курсов
-DELETE FROM modules
-WHERE course_id IN (
-  SELECT id FROM courses WHERE title IN (
-    'Женский курс', 
-    'Введение в женское здоровье', 
+DELETE FROM courses
+WHERE title IN (
+    'Женский курс',
     'Восстановление после родов',
+    'Здоровая спина мамы',
+    'Сила интимных мышц',
+    'Легкая беременность',
+    'Введение в женское здоровье',
     'Питание во время беременности',
     'Йога для беременных',
     'Психология материнства'
-  )
 );
 
--- 4. Удаляем тестовые курсы (и старые, и новые названия)
-DELETE FROM courses
+DELETE FROM services
 WHERE title IN (
-  'Женский курс', 
-  'Введение в женское здоровье', 
-  'Восстановление после родов',
-  'Питание во время беременности',
-  'Йога для беременных',
-  'Психология материнства'
+    'Бесплатная диагностическая консультация',
+    'Индивидуальная консультация/занятие',
+    'Физическая реабилитация при РМЖ',
+    'Послеродовый патронаж для мамы'
 );
 
--- 5. Удаляем тестовых пользователей
-DELETE FROM users
-WHERE email IN ('admin@test.ru', 'user@test.ru');
-
+COMMIT;

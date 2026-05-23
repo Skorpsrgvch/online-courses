@@ -1,11 +1,21 @@
 import React from 'react';
 import { Button } from '../ui/Button';
+import { useNavigate } from 'react-router-dom';
 
 
 
 
 export const HeroSection: React.FC = () => {
 
+  const navigate = useNavigate();
+
+const openCourses = () => {
+  navigate('/courses');
+};
+
+const openServices = () => {
+  navigate('/services');
+};
 
   return (
     <section className="relative min-h-[90vh] flex items-center pb-8 md:pb-10 lg:pb-16  py-10 md:py-14 lg:py-16  overflow-hidden pt-20">
@@ -28,19 +38,15 @@ export const HeroSection: React.FC = () => {
 
               <p className="text-lg md:text-xl text-gray-600 leading-relaxed max-w-xl mx-auto lg:mx-0 font-light">
                 Профессиональная помощь и обучающие материалы по здоровью тазового дна.
-                
+
               </p>
             </div>
 
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-center pt-4">
               <Button
-                onClick={() => {
-                  const section = document.querySelector('#courses');
-                  if (section) {
-                    section.scrollIntoView({ behavior: 'smooth' }); // Плавная прокрутка
-                  }
-                }}
+                onClick={openCourses}
+
                 className="px-8 py-4 text-lg rounded-2xl! shadow-lg shadow-rose-200 hover:shadow-rose-300 hover:-translate-y-1 transition-all duration-300"
               >
                 Начать обучение
@@ -48,12 +54,7 @@ export const HeroSection: React.FC = () => {
 
               {/* Кнопка записи */}
               <button
-                onClick={() => {
-                  const section = document.querySelector('#courses');
-                  if (section) {
-                    section.scrollIntoView({ behavior: 'smooth' }); // Плавная прокрутка
-                  }
-                }}
+                onClick={openServices}
                 className="px-8 py-4 text-lg font-medium text-gray-700 bg-white border-2 border-gray-200 rounded-2xl! 
                            hover:border-rose-300 hover:text-rose-500 hover:shadow-md hover:shadow-rose-100 
                            transition-all duration-300 transform"
@@ -62,7 +63,7 @@ export const HeroSection: React.FC = () => {
               </button>
             </div>
 
-            
+
           </div>
 
           <div className="order-first lg:order-last relative group">

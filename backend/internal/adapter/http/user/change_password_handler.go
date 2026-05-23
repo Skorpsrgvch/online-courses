@@ -7,6 +7,7 @@ import (
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/middleware"
 	"github.com/Skorpsrgvch/online-courses/internal/usecase/user/change_password"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type ChangePasswordRequest struct {
@@ -35,6 +36,8 @@ func (h *ChangePasswordHandler) Handle(c *gin.Context) {
 		return
 	}
 
+	zap.L().Debug("Change password request", zap.Int("user_id", userID))
+
 	input := change_password.Input{
 		UserID:      userID,
 		OldPassword: req.OldPassword,
@@ -43,10 +46,11 @@ func (h *ChangePasswordHandler) Handle(c *gin.Context) {
 
 	output, err := h.usecase.Execute(c.Request.Context(), input)
 	if err != nil {
-		// Маппинг ошибок юзкейса в HTTP статусы можно улучшить в common.HandleError
+		zap.L().Warn("Change password failed", zap.Int("user_id", userID), zap.Error(err))
 		common.HandleError(c, err)
 		return
 	}
 
+	zap.L().Info("Password changed successfully", zap.Int("user_id", userID))
 	c.JSON(http.StatusOK, gin.H{"message": output.Message})
 }

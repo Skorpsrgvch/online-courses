@@ -6,9 +6,9 @@ import { ServicesSection } from '../../components/landing/ServicesSection';
 
 import CourseCatalog  from '../../components/landing/CourseCatalog'; 
 
-import { ArticleSection } from '../../components/landing/ArticleSection'; 
+//import { ArticleSection } from '../../components/landing/ArticleSection'; 
 
-import { VideoSection } from '../../components/landing/VideoSection'; 
+//import { VideoSection } from '../../components/landing/VideoSection'; 
 
 
 
@@ -24,9 +24,10 @@ const HomePage = () => {
 
       <CourseCatalog />
 
-      <ArticleSection />
-
-      <VideoSection />
+      {/*  <ArticleSection /> */}
+     
+      {/* <VideoSection /> */}
+      
 
     </div>
   );

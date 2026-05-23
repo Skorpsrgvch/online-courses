@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 type ProgressRepo struct {
@@ -22,18 +24,26 @@ func (r *ProgressRepo) MarkCompleted(ctx context.Context, userID, lessonID int) 
 		ON CONFLICT (user_id, lesson_id) 
 		DO UPDATE SET completed_at = EXCLUDED.completed_at
 	`
+
 	_, err := r.db.ExecContext(ctx, query, userID, lessonID, time.Now().UTC())
-	return err
+	if err != nil {
+		zap.L().Error("Failed to mark lesson as completed", zap.Int("user_id", userID), zap.Int("lesson_id", lessonID), zap.Error(err))
+		return err
+	}
+
+	zap.L().Debug("Lesson marked as completed", zap.Int("user_id", userID), zap.Int("lesson_id", lessonID))
+	return nil
 }
 
 // GetCourseProgress возвращает количество пройденных уроков для конкретного курса
 func (r *ProgressRepo) GetCourseProgress(ctx context.Context, userID, courseID int) (completed int, total int, err error) {
-	// Считаем всего уроков в курсе (через modules, так как в lessons нет course_id)
+	// Считаем всего уроков в курсе
 	err = r.db.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM lessons l
 		JOIN modules m ON l.module_id = m.id
 		WHERE m.course_id = $1
 	`, courseID).Scan(&total)
+
 	if err != nil {
 		return 0, 0, err
 	}
@@ -54,7 +64,6 @@ func (r *ProgressRepo) GetCourseProgress(ctx context.Context, userID, courseID i
 }
 
 // GetCompletedLessonsCount возвращает количество пройденных уроков пользователем в курсе
-// Исправлено: добавлен JOIN с modules для получения course_id
 func (r *ProgressRepo) GetCompletedLessonsCount(ctx context.Context, userID, courseID int) (int, error) {
 	query := `
 		SELECT COUNT(DISTINCT up.lesson_id)
@@ -69,7 +78,6 @@ func (r *ProgressRepo) GetCompletedLessonsCount(ctx context.Context, userID, cou
 }
 
 // GetTotalLessonsCount возвращает общее количество уроков в курсе
-// Исправлено: добавлен JOIN с modules для получения course_id
 func (r *ProgressRepo) GetTotalLessonsCount(ctx context.Context, courseID int) (int, error) {
 	query := `
 		SELECT COUNT(*) 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { coursesService, reviewsService, servicesService } from '../../api';
-import apiClient from '../../api/axiosInstance'; // Подключаем напрямую для кастомных запросов
+import apiClient from '../../api/axiosInstance';
 import type { Course, Review, Service } from '../../api/types';
 import { timeAgo } from '../../utils/dateUtils';
 
@@ -33,28 +33,49 @@ const AdminPage = () => {
   const [isGranting, setIsGranting] = useState(false);
   const [accessMessage, setAccessMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const [coursesData, reviewsData, servicesData] = await Promise.all([
-          coursesService.getAllCoursesAdmin(),
-          reviewsService.getPendingReviews(),
-          servicesService.getAll(),
-        ]);
+  // Состояния для модальных окон (Отклонение и Ошибка)
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [selectedReviewId, setSelectedReviewId] = useState<number | null>(null);
 
-        setAllCourses(Array.isArray(coursesData) ? coursesData : []);
-        setPendingReviews(Array.isArray(reviewsData) ? reviewsData : []);
-        const sortedServices = Array.isArray(servicesData) ? [...servicesData].sort((a, b) => a.id - b.id) : [];
-        setServicesList(sortedServices);
-      } catch (err: any) {
-        console.error(err);
-        setError(err.message || 'Не удалось загрузить данные');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Состояние для модалки ошибки
+  const [errorModal, setErrorModal] = useState<{ isOpen: boolean; message: string }>({ isOpen: false, message: '' });
+
+  // Функция загрузки данных при старте
+  const loadData = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const [coursesData, reviewsData, servicesData] = await Promise.all([
+        coursesService.getAllCoursesAdmin(),
+        reviewsService.getPendingReviews(),
+        servicesService.getAll(),
+      ]);
+
+      setAllCourses(Array.isArray(coursesData) ? coursesData : []);
+      setPendingReviews(Array.isArray(reviewsData) ? reviewsData : []);
+      const sortedServices = Array.isArray(servicesData) ? [...servicesData].sort((a, b) => a.id - b.id) : [];
+      setServicesList(sortedServices);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Не удалось загрузить данные');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Отдельная функция только для перезагрузки отзывов
+  const loadPendingReviews = async () => {
+    try {
+      const reviewsData = await reviewsService.getPendingReviews();
+      setPendingReviews(Array.isArray(reviewsData) ? reviewsData : []);
+    } catch (err: any) {
+      console.error('Failed to reload reviews:', err);
+      showErrorModal('Не удалось обновить список отзывов');
+    }
+  };
+
+  useEffect(() => {
     loadData();
   }, []);
 
@@ -76,7 +97,7 @@ const AdminPage = () => {
       setError(null);
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.message || err.message || `Ошибка операции с курсом`);
+      showErrorModal(err.response?.data?.message || err.message || `Ошибка операции с курсом`);
     }
   };
 
@@ -86,25 +107,79 @@ const AdminPage = () => {
       await servicesService.delete(id);
       setServicesList(prev => prev.filter(s => s.id !== id));
     } catch (err: any) {
-      setError(err.message || 'Ошибка удаления услуги');
+      showErrorModal(err.message || 'Ошибка удаления услуги');
     }
   };
+
+  // --- Логика Модальных окон ---
+
+  const showErrorModal = (message: string) => {
+    setErrorModal({ isOpen: true, message });
+  };
+
+  const closeErrorModal = () => {
+    setErrorModal({ isOpen: false, message: '' });
+  };
+
+  // Открытие модалки отклонения
+  const openRejectModal = (id: number) => {
+    setSelectedReviewId(id);
+    setRejectReason('');
+    setIsRejectModalOpen(true);
+  };
+
+  // Закрытие модалки
+  const closeRejectModal = () => {
+    setIsRejectModalOpen(false);
+    setSelectedReviewId(null);
+    setRejectReason('');
+  };
+
+  const confirmReject = async () => {
+    if (!selectedReviewId || !rejectReason.trim()) {
+      showErrorModal('Пожалуйста, укажите причину отклонения (минимум 5 символов).');
+      return;
+    }
+
+    try {
+      // ВАЖНО: Используем PUT вместо DELETE
+      await apiClient.put(`/reviews/${selectedReviewId}`, {
+        reason: rejectReason.trim(), // Передаем объект напрямую как тело запроса
+      });
+
+      loadPendingReviews();
+      closeRejectModal();
+    } catch (error: any) {
+      const msg = error.response?.data?.error || error.response?.data?.message || 'Не удалось отклонить отзыв';
+      showErrorModal(msg);
+      console.error(error);
+    }
+  };
+
 
   const handleApproveReview = async (id: number) => {
-    try {
-      await reviewsService.approveReview(id);
-      setPendingReviews((prev) => prev.filter((r) => r.id !== id));
-    } catch (err: any) {
-      setError(err.message || 'Ошибка одобрения');
+    if (window.confirm('Одобрить этот отзыв?')) {
+      try {
+        // Роут: POST /reviews/:id/approve
+        await apiClient.post(`/reviews/${id}/approve`);
+        loadPendingReviews();
+      } catch (error: any) {
+        const msg = error.response?.data?.message || error.response?.data?.error || 'Ошибка при одобрении';
+        showErrorModal(msg);
+      }
     }
   };
 
-  const handleRejectReview = async (id: number) => {
+  const handleDeleteReview = async (id: number) => {
+    if (!window.confirm('Вы уверены, что хотите удалить этот отзыв?')) return;
     try {
-      await reviewsService.rejectReview(id);
-      setPendingReviews((prev) => prev.filter((r) => r.id !== id));
+      // Используем новый эндпоинт для админа
+      await apiClient.delete(`/admin/reviews/${id}`);
+
+      // Обновляем список
+      loadPendingReviews();
     } catch (err: any) {
-      setError(err.message || 'Ошибка отклонения');
+      showErrorModal(err.response?.data?.message || 'Ошибка при удалении отзыва');
     }
   };
 
@@ -117,7 +192,7 @@ const AdminPage = () => {
         setSearchResults([]);
         setSelectedUser(null);
       }
-    }, 600); // Debounce 600ms
+    }, 600);
 
     return () => clearTimeout(timer);
   }, [emailQuery, activeTab]);
@@ -130,7 +205,6 @@ const AdminPage = () => {
     setAccessMessage(null);
 
     try {
-      // Проверьте, что этот эндпоинт существует на бэкенде
       const response = await apiClient.post<UserSearchResult[]>('/users/search', {
         email: emailQuery,
         limit: 10
@@ -138,10 +212,7 @@ const AdminPage = () => {
       setSearchResults(response.data);
     } catch (err: any) {
       console.error(err);
-      setAccessMessage({
-        type: 'error',
-        text: err.response?.data?.error || 'Ошибка при поиске пользователя. Проверьте консоль.'
-      });
+      showErrorModal(err.response?.data?.error || 'Ошибка при поиске пользователя.');
     } finally {
       setIsSearching(false);
     }
@@ -165,7 +236,6 @@ const AdminPage = () => {
         text: `Доступ к курсу успешно предоставлен пользователю ${selectedUser.email}`
       });
 
-      // Сброс формы
       setSelectedUser(null);
       setSelectedCourseId('');
       setEmailQuery('');
@@ -173,8 +243,8 @@ const AdminPage = () => {
 
     } catch (err: any) {
       console.error(err);
-      const errorMsg = err.response?.data?.error || 'Не удалось предоставить доступ';
-      setAccessMessage({ type: 'error', text: errorMsg });
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Не удалось предоставить доступ';
+      showErrorModal(errorMsg);
     } finally {
       setIsGranting(false);
     }
@@ -340,7 +410,6 @@ const AdminPage = () => {
                   <div key={review.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
                     <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                       <div className="flex-1 w-full">
-                        {/* Добавлен блок с названием курса */}
                         <div className="mb-2">
                           <span className="inline-block px-2 py-1 bg-rose-50 text-rose-600 text-xs font-bold rounded-md border border-rose-100">
                             Курс: {review.course_title}
@@ -358,12 +427,30 @@ const AdminPage = () => {
                         <p className="text-sm text-gray-700 leading-relaxed break-words">{review.text}</p>
                         <p className="text-xs text-gray-500 mt-2">Автор: {review.author_name || 'Аноним'}</p>
                       </div>
+
                       <div className="flex gap-2 w-full sm:w-auto">
-                        <button onClick={() => handleApproveReview(review.id)} className="flex-1 sm:flex-none px-3 py-1.5 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors shadow-sm">
+                        <button
+                          onClick={() => handleApproveReview(review.id)}
+                          className="flex-1 sm:flex-none px-3 py-1.5 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors shadow-sm"
+                        >
                           ✓ Одобрить
                         </button>
-                        <button onClick={() => handleRejectReview(review.id)} className="flex-1 sm:flex-none px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+                        <button
+                          onClick={() => openRejectModal(review.id)}
+                          className="flex-1 sm:flex-none px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                        >
                           ✕ Отклонить
+                        </button>
+                        {/* Кнопка удаления */}
+                        <button
+                          onClick={() => handleDeleteReview(review.id)}
+                          className="w-full sm:w-auto px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-700 hover:border-gray-300 transition-colors flex items-center justify-center gap-1 mt-1 sm:mt-0"
+                          title="Полностью удалить отзыв из базы"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Удалить
                         </button>
                       </div>
                     </div>
@@ -371,10 +458,71 @@ const AdminPage = () => {
                 ))}
               </div>
             )}
+
+            {/* ===== МОДАЛЬНОЕ ОКНО ОТКЛОНЕНИЯ ===== */}
+            {isRejectModalOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-scaleIn">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Отклонение отзыва</h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Укажите причину, по которой этот отзыв не будет опубликован.
+                  </p>
+
+                  <textarea
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    placeholder="Например: Отзыв содержит нецензурную лексику..."
+                    className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-200 focus:border-red-400 min-h-[100px] text-sm"
+                    autoFocus
+                  />
+
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      onClick={closeRejectModal}
+                      className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      onClick={confirmReject}
+                      disabled={!rejectReason.trim()}
+                      className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-xl hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Отклонить
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ===== МОДАЛЬНОЕ ОКНО ОШИБКИ ===== */}
+            {errorModal.isOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-scaleIn border-l-4 border-red-500">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-red-600 flex-shrink-0">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900">Ошибка операции</h3>
+                  </div>
+
+                  <p className="text-gray-600 mb-6 text-sm leading-relaxed bg-gray-50 p-3 rounded-lg border border-gray-100">
+                    {errorModal.message}
+                  </p>
+
+                  <button
+                    onClick={closeErrorModal}
+                    className="w-full px-4 py-2.5 text-sm font-bold text-white bg-red-500 rounded-xl hover:bg-red-600 transition-colors shadow-md"
+                  >
+                    Понятно
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* ===== НОВАЯ ВКЛАДКА: Выдача доступа ===== */}
+        {/* ===== НОВАЯ ВКЛАКА: Выдача доступа ===== */}
         {activeTab === 'grant-access' && (
           <div className="max-w-4xl mx-auto">
             <div className="mb-6">
@@ -384,8 +532,8 @@ const AdminPage = () => {
 
             {accessMessage && (
               <div className={`mb-6 p-4 rounded-lg border flex items-center gap-3 ${accessMessage.type === 'success'
-                  ? 'bg-green-50 border-green-200 text-green-800'
-                  : 'bg-red-50 border-red-200 text-red-800'
+                ? 'bg-green-50 border-green-200 text-green-800'
+                : 'bg-red-50 border-red-200 text-red-800'
                 }`}>
                 <span>{accessMessage.type === 'success' ? '✅' : '⚠️'}</span>
                 <span className="flex-1">{accessMessage.text}</span>
@@ -415,7 +563,8 @@ const AdminPage = () => {
                   )}
                 </div>
 
-                {searchResults.length > 0 && (
+                {/* Исправлено: Добавлена проверка searchResults на null/undefined перед обращением к length */}
+                {searchResults && searchResults.length > 0 && (
                   <div className="mt-2 border border-gray-200 rounded-lg overflow-hidden shadow-sm max-h-60 overflow-y-auto bg-white z-10 relative">
                     <ul className="divide-y divide-gray-100">
                       {searchResults.map((user) => (
@@ -423,7 +572,7 @@ const AdminPage = () => {
                           key={user.id}
                           onClick={() => {
                             setSelectedUser(user);
-                            setSearchResults([]);
+                            setSearchResults([]); // Очищаем список после выбора
                             setEmailQuery(user.email);
                             setAccessMessage(null);
                           }}
@@ -438,7 +587,8 @@ const AdminPage = () => {
                     </ul>
                   </div>
                 )}
-                {emailQuery.length >= 2 && searchResults.length === 0 && !isSearching && (
+
+                {emailQuery.length >= 2 && !isSearching && (!searchResults || searchResults.length === 0) && !selectedUser && (
                   <p className="mt-2 text-sm text-gray-500 italic">Пользователи не найдены.</p>
                 )}
               </div>
@@ -455,11 +605,15 @@ const AdminPage = () => {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none bg-white disabled:bg-gray-50"
                 >
                   <option value="">-- Выберите курс --</option>
-                  {activeCourses.map((course) => (
-                    <option key={course.id} value={course.id}>
-                      {course.title} ({course.price === 0 ? 'Бесплатно' : `${course.price} ₽`})
-                    </option>
-                  ))}
+                  {activeCourses && activeCourses.length > 0 ? (
+                    activeCourses.map((course) => (
+                      <option key={course.id} value={course.id}>
+                        {course.title} ({course.price === 0 ? 'Бесплатно' : `${course.price} ₽`})
+                      </option>
+                    ))
+                  ) : (
+                    <option disabled>Нет активных курсов</option>
+                  )}
                 </select>
               </div>
 
@@ -471,7 +625,7 @@ const AdminPage = () => {
                       Вы собираетесь выдать доступ пользователю <strong>{selectedUser.email}</strong> к курсу:
                     </p>
                     <p className="text-lg font-bold text-blue-900 mt-1">
-                      {activeCourses.find(c => c.id === selectedCourseId)?.title}
+                      {activeCourses.find(c => c.id === selectedCourseId)?.title || 'Выбранный курс'}
                     </p>
                   </div>
 

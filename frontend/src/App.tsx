@@ -19,6 +19,10 @@ import PaymentSuccessPage from './pages/Course/PaymentSuccessPage';
 import ServicesPage from './pages/Service/ServicesPage';
 import ServicesFormPage from './pages/Admin/ServiceFormPage';
 
+import PrivacyPolicyPage from './pages/Policy/PrivacyPolicyPage';
+import ConsentPage from './pages/Policy/ConsentPage';
+import OfferPage from './pages/Policy/OfferPage';
+
 
 // Компонент для перенаправления на главную (должен быть объявлен ДО использования)
 const NavigateToHome = () => {
@@ -42,6 +46,9 @@ const router = createBrowserRouter([
       { path: 'password-recovery', element: <PasswordRecoveryPage /> },
       { path: 'courses', element: <AllCoursesPage /> },
       { path: 'services', element: <ServicesPage /> },
+      { path: "privacy-policy", element: <PrivacyPolicyPage /> },
+      { path: "privacy-policy", element: <ConsentPage /> },
+      { path: "privacy-policy", element: <OfferPage /> },
       
       {
         path: 'dashboard',

@@ -30,45 +30,40 @@ func (r *ServiceRepo) GetAll(ctx context.Context) ([]*domain.Service, error) {
 
 	var services []*domain.Service
 	for rows.Next() {
-		s := &domain.Service{}
+		var s domain.Service
 		err := rows.Scan(&s.ID, &s.Title, &s.Description, &s.Price, &s.Duration, &s.CreatedAt, &s.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
-		services = append(services, s)
+		services = append(services, &s)
 	}
 	return services, rows.Err()
 }
 
-// GetByID получает услугу по ID
 func (r *ServiceRepo) GetByID(ctx context.Context, id int) (*domain.Service, error) {
 	query := `
 		SELECT id, title, description, price, duration_minutes, created_at, updated_at
-		FROM services
-		WHERE id = $1
+		FROM services WHERE id = $1
 	`
-	s := &domain.Service{}
+	var s domain.Service
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&s.ID, &s.Title, &s.Description, &s.Price, &s.Duration, &s.CreatedAt, &s.UpdatedAt,
 	)
-	if err != nil {
-		return nil, err
+	if err == sql.ErrNoRows {
+		return nil, domain.ErrServiceNotFound
 	}
-	return s, nil
+	return &s, err
 }
 
-// Create создает новую услугу
 func (r *ServiceRepo) Create(ctx context.Context, s *domain.Service) error {
 	query := `
 		INSERT INTO services (title, description, price, duration_minutes, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id
+		VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
 	`
 	now := time.Now().UTC()
 	return r.db.QueryRowContext(ctx, query, s.Title, s.Description, s.Price, s.Duration, now, now).Scan(&s.ID)
 }
 
-// Update обновляет существующую услугу
 func (r *ServiceRepo) Update(ctx context.Context, s *domain.Service) error {
 	query := `
 		UPDATE services
@@ -80,9 +75,7 @@ func (r *ServiceRepo) Update(ctx context.Context, s *domain.Service) error {
 	return err
 }
 
-// Delete удаляет услугу (физически)
 func (r *ServiceRepo) Delete(ctx context.Context, id int) error {
-	query := `DELETE FROM services WHERE id = $1`
-	_, err := r.db.ExecContext(ctx, query, id)
+	_, err := r.db.ExecContext(ctx, `DELETE FROM services WHERE id = $1`, id)
 	return err
 }

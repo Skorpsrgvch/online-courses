@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
+	"go.uber.org/zap"
 )
 
 type Input struct {
@@ -18,6 +19,14 @@ type Usecase struct {
 	finder  ModuleFinder
 }
 
+type ModuleUpdater interface {
+	Update(ctx context.Context, module *domain.Module) error
+}
+
+type ModuleFinder interface {
+	GetByID(ctx context.Context, id int) (*domain.Module, error)
+}
+
 func NewUsecase(updater ModuleUpdater, finder ModuleFinder) (*Usecase, error) {
 	if updater == nil || finder == nil {
 		return nil, errors.New("dependencies required")
@@ -26,10 +35,21 @@ func NewUsecase(updater ModuleUpdater, finder ModuleFinder) (*Usecase, error) {
 }
 
 func (u *Usecase) Execute(ctx context.Context, input Input) error {
+	zap.L().Debug("UpdateModule started", zap.Int("moduleID", input.ID))
+
 	existing, err := u.finder.GetByID(ctx, input.ID)
 	if err != nil {
+		zap.L().Error("Failed to find existing module", zap.Int("moduleID", input.ID), zap.Error(err))
 		return err
 	}
+
 	updated := domain.RestoreModule(input.ID, existing.CourseID, input.Order, input.Title)
-	return u.updater.Update(ctx, updated)
+
+	if err := u.updater.Update(ctx, updated); err != nil {
+		zap.L().Error("Failed to update module", zap.Int("moduleID", input.ID), zap.Error(err))
+		return err
+	}
+
+	zap.L().Info("Module updated successfully", zap.Int("moduleID", input.ID))
+	return nil
 }

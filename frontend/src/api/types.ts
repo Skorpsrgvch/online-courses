@@ -46,7 +46,7 @@ export interface Course {
   class_basis?: string;
   modules?: LessonGroup[];
   is_purchased?: boolean;
-  progress?: number;
+  progress_percent?: number;
 }
 
 export interface LessonGroup {
@@ -64,6 +64,7 @@ export interface Review {
   rating: number;
   approved: boolean;
   created_at: string;
+  rejection_reason?: string;
   author_name?: string;
   course_title?: string;
 }
@@ -114,6 +115,8 @@ export interface CreateCourseDto {
   target_audience?: string;
   course_basis?: string;
   class_basis?: string;
+  is_purchased?: boolean; 
+  progress_percent?: number;
 }
 
 export interface CreateModuleDto {

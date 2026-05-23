@@ -72,14 +72,15 @@ export const Footer: React.FC = () => {
               {[
                 { name: 'Главная', href: '/' },
                 { name: 'О специалисте', href: '/#about' },
-                { name: 'Курсы', href: '/#courses' },
-                 { name: 'Курсы', href: '/#services' }
+                { name: 'Услуги', href: '/services' },
+                { name: 'Курсы', href: '/courses' }
+                 
 
               ].map((link) => (
                 <li key={link.name}>
                   <a
                     href={link.href}
-                    className="relative !text-white hover:!text-rose-400 font-medium text-base transition-colors duration-300 decoration-transparent group block"
+                    className="relative text-white! hover:text-rose-400! font-medium text-base transition-colors duration-300 decoration-transparent group block"
                     style={{ textDecoration: 'none' }}
                   >
                     {link.name}

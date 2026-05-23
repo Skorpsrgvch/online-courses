@@ -5,15 +5,16 @@ import (
 	"strconv"
 
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
-	"github.com/Skorpsrgvch/online-courses/internal/usecase/service/get"
+	getUC "github.com/Skorpsrgvch/online-courses/internal/usecase/service/get"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type GetByIDHandler struct {
-	usecase *get.Usecase
+	usecase *getUC.Usecase
 }
 
-func NewGetByIDHandler(usecase *get.Usecase) *GetByIDHandler {
+func NewGetByIDHandler(usecase *getUC.Usecase) *GetByIDHandler {
 	return &GetByIDHandler{usecase: usecase}
 }
 
@@ -21,16 +22,17 @@ func (h *GetByIDHandler) Handle(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
+		zap.L().Debug("Invalid service ID format", zap.String("id", idStr), zap.Error(err))
 		common.HandleError(c, common.HttpError("invalid service ID", http.StatusBadRequest))
 		return
 	}
 
-	input := get.Input{
-		ID: id,
-	}
+	zap.L().Debug("Fetching service by ID", zap.Int("id", id))
 
+	input := getUC.Input{ID: id}
 	output, err := h.usecase.Execute(c.Request.Context(), input)
 	if err != nil {
+		zap.L().Error("Failed to get service", zap.Int("id", id), zap.Error(err))
 		common.HandleError(c, err)
 		return
 	}

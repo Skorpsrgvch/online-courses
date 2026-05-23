@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 type RefreshTokenRepo struct {
@@ -17,7 +19,6 @@ func NewRefreshTokenRepo(db *sql.DB) *RefreshTokenRepo {
 	return &RefreshTokenRepo{db: db}
 }
 
-// hashToken создает SHA-256 хеш токена
 func hashToken(token string) string {
 	hash := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(hash[:])
@@ -30,7 +31,12 @@ func (r *RefreshTokenRepo) Save(ctx context.Context, userID int, token string, e
 		VALUES ($1, $2, $3)
 	`
 	_, err := r.db.ExecContext(ctx, query, userID, hashToken(token), expiresAt)
-	return err
+	if err != nil {
+		zap.L().Error("Failed to save refresh token", zap.Int("user_id", userID), zap.Error(err))
+		return err
+	}
+	zap.L().Debug("Refresh token saved", zap.Int("user_id", userID))
+	return nil
 }
 
 // Validate проверяет, существует ли токен в БД и не истек ли он
@@ -42,14 +48,24 @@ func (r *RefreshTokenRepo) Validate(ctx context.Context, userID int, token strin
 	`
 	var id int
 	err := r.db.QueryRowContext(ctx, query, userID, hashToken(token)).Scan(&id)
-	if err == sql.ErrNoRows {
-		return errors.New("token not found or expired")
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("token not found or expired")
+		}
+		zap.L().Error("Failed to validate refresh token", zap.Int("user_id", userID), zap.Error(err))
+		return err
 	}
-	return err
+	return nil
 }
 
 // DeleteByUser удаляет все токены пользователя (для Logout)
 func (r *RefreshTokenRepo) DeleteByUser(ctx context.Context, userID int) error {
 	_, err := r.db.ExecContext(ctx, `DELETE FROM refresh_tokens WHERE user_id = $1`, userID)
-	return err
+	if err != nil {
+		zap.L().Error("Failed to delete refresh tokens", zap.Int("user_id", userID), zap.Error(err))
+		return err
+	}
+	zap.L().Info("All refresh tokens deleted for user", zap.Int("user_id", userID))
+	return nil
 }

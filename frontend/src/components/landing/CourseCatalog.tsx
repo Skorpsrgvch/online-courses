@@ -33,7 +33,6 @@ const CourseCatalog: React.FC = () => {
     navigate(`/course/${id}`);
   };
 
-  // Берем только первые 3 курса для отображения на главной
   const displayCourses = courses.slice(0, 3);
 
   if (loading) {

@@ -8,6 +8,7 @@ import (
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/middleware"
 	"github.com/Skorpsrgvch/online-courses/internal/usecase/user/update_profile"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type UpdateProfileRequest struct {
@@ -36,7 +37,6 @@ func (h *UpdateProfileHandler) Handle(c *gin.Context) {
 		return
 	}
 
-	// Дополнительная валидация: если email передан, он не должен быть пустым
 	if req.Email != nil && strings.TrimSpace(*req.Email) == "" {
 		common.HandleError(c, common.HttpError("email не может быть пустым", http.StatusBadRequest))
 		return
@@ -52,6 +52,11 @@ func (h *UpdateProfileHandler) Handle(c *gin.Context) {
 		return
 	}
 
+	zap.L().Debug("Update profile request",
+		zap.Int("user_id", userID),
+		zap.Bool("name_changed", req.Name != nil),
+		zap.Bool("email_changed", req.Email != nil))
+
 	input := update_profile.Input{
 		UserID:   userID,
 		NewName:  req.Name,
@@ -60,9 +65,11 @@ func (h *UpdateProfileHandler) Handle(c *gin.Context) {
 
 	output, err := h.usecase.Execute(c.Request.Context(), input)
 	if err != nil {
+		zap.L().Warn("Update profile failed", zap.Int("user_id", userID), zap.Error(err))
 		common.HandleError(c, err)
 		return
 	}
 
+	zap.L().Info("Profile updated", zap.Int("user_id", userID))
 	c.JSON(http.StatusOK, gin.H{"message": output.Message})
 }

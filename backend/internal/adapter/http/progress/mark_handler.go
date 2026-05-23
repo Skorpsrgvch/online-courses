@@ -9,6 +9,7 @@ import (
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
 	"github.com/Skorpsrgvch/online-courses/internal/usecase/progress/mark"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type MarkHandler struct {
@@ -32,15 +33,17 @@ func (h *MarkHandler) Handle(c *gin.Context) {
 		return
 	}
 
-	input := mark.Input{
-		UserID:   userID,
-		LessonID: lessonID,
-	}
+	zap.L().Debug("Marking lesson as completed",
+		zap.Int("user_id", userID),
+		zap.Int("lesson_id", lessonID))
 
+	input := mark.Input{UserID: userID, LessonID: lessonID}
 	if err := h.usecase.Execute(c.Request.Context(), input); err != nil {
+		zap.L().Warn("Failed to mark lesson completed", zap.Error(err))
 		common.HandleError(c, err)
 		return
 	}
 
+	zap.L().Info("Lesson marked as completed", zap.Int("lesson_id", lessonID))
 	c.Status(http.StatusOK)
 }

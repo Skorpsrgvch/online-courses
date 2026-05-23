@@ -5,8 +5,9 @@ import (
 
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/middleware"
-	"github.com/Skorpsrgvch/online-courses/internal/usecase/auth/login"
+	loginUC "github.com/Skorpsrgvch/online-courses/internal/usecase/auth/login"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type loginRequest struct {
@@ -15,10 +16,10 @@ type loginRequest struct {
 }
 
 type LoginHandler struct {
-	usecase *login.Usecase
+	usecase *loginUC.Usecase
 }
 
-func NewLoginHandler(usecase *login.Usecase) *LoginHandler {
+func NewLoginHandler(usecase *loginUC.Usecase) *LoginHandler {
 	return &LoginHandler{usecase: usecase}
 }
 
@@ -29,18 +30,22 @@ func (h *LoginHandler) Handle(c *gin.Context) {
 		return
 	}
 
-	input := login.Input{
+	zap.L().Debug("Login attempt", zap.String("email", req.Email))
+
+	input := loginUC.Input{
 		Email:    req.Email,
 		Password: req.Password,
 	}
 
 	output, err := h.usecase.Execute(c.Request.Context(), input)
 	if err != nil {
+		// Не логируем детали ошибки (неверный пароль) для безопасности,
+		// но сам факт неудачи можно залогировать на уровне INFO/WARN без пароля
+		zap.L().Info("Login failed", zap.String("email", req.Email), zap.Error(err))
 		common.HandleError(c, err)
 		return
 	}
 
-	// Генерируем JWT
 	accessToken, refreshToken, err := middleware.GenerateToken(
 		output.User.ID,
 		output.User.Email,
@@ -48,9 +53,12 @@ func (h *LoginHandler) Handle(c *gin.Context) {
 		output.User.Role,
 	)
 	if err != nil {
+		zap.L().Error("Token generation failed", zap.Error(err))
 		common.HandleError(c, err)
 		return
 	}
+
+	zap.L().Info("Login successful", zap.Int("userID", output.User.ID), zap.String("email", req.Email))
 
 	c.JSON(http.StatusOK, gin.H{
 		"user_id":       output.User.ID,
@@ -59,6 +67,6 @@ func (h *LoginHandler) Handle(c *gin.Context) {
 		"role":          output.User.Role,
 		"access_token":  accessToken,
 		"refresh_token": refreshToken,
-		"expires_in":    900, // 15 минут в секундах
+		"expires_in":    900,
 	})
 }

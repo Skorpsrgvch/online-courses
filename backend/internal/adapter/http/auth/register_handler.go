@@ -4,8 +4,9 @@ import (
 	"net/http"
 
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
-	"github.com/Skorpsrgvch/online-courses/internal/usecase/auth/register"
+	registerUC "github.com/Skorpsrgvch/online-courses/internal/usecase/auth/register"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type registerRequest struct {
@@ -15,10 +16,10 @@ type registerRequest struct {
 }
 
 type RegisterHandler struct {
-	usecase *register.Usecase
+	usecase *registerUC.Usecase
 }
 
-func NewRegisterHandler(usecase *register.Usecase) *RegisterHandler {
+func NewRegisterHandler(usecase *registerUC.Usecase) *RegisterHandler {
 	return &RegisterHandler{usecase: usecase}
 }
 
@@ -29,17 +30,21 @@ func (h *RegisterHandler) Handle(c *gin.Context) {
 		return
 	}
 
-	input := register.Input{
+	zap.L().Debug("Registration request", zap.String("email", req.Email))
+
+	input := registerUC.Input{
 		Email:    req.Email,
 		FullName: req.FullName,
 		Password: req.Password,
-		Role:     "user", // только user может регистрироваться
+		Role:     "user",
 	}
 
 	if err := h.usecase.Execute(c.Request.Context(), input); err != nil {
+		zap.L().Info("Registration failed", zap.String("email", req.Email), zap.Error(err))
 		common.HandleError(c, err)
 		return
 	}
 
+	zap.L().Info("User registered successfully", zap.String("email", req.Email))
 	c.JSON(http.StatusCreated, gin.H{"message": "User registered"})
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
 	"github.com/Skorpsrgvch/online-courses/internal/usecase/admin/access"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type GrantAccessHandler struct {
@@ -19,43 +20,39 @@ func NewGrantAccessHandler(usecase *access.Usecase) *GrantAccessHandler {
 func (h *GrantAccessHandler) Handle(c *gin.Context) {
 	var input access.Input
 
-	// Привязка JSON к структуре
 	if err := c.ShouldBindJSON(&input); err != nil {
-		common.HandleError(c, common.HttpError("Неверный формат данных: user_id и course_id обязательны", http.StatusBadRequest))
+		zap.L().Debug("Invalid JSON in grant access", zap.Error(err))
+		common.HandleError(c, common.HttpError("Неверный формат данных", http.StatusBadRequest))
 		return
 	}
 
-	// Дополнительная валидация
 	if input.UserID <= 0 || input.CourseID <= 0 {
-		common.HandleError(c, common.HttpError("ID пользователя и курса должны быть положительными числами", http.StatusBadRequest))
+		common.HandleError(c, common.HttpError("ID пользователя и курса должны быть положительными", http.StatusBadRequest))
 		return
 	}
 
-	// Выполнение логики
+	zap.L().Info("Granting access request", zap.Int("userID", input.UserID), zap.Int("courseID", input.CourseID))
+
 	output, err := h.usecase.Execute(c.Request.Context(), input)
 	if err != nil {
-		// Маппинг ошибок на HTTP статусы
-		status := http.StatusInternalServerError
-		msg := err.Error()
+		zap.L().Error("Grant access failed", zap.Int("userID", input.UserID), zap.Int("courseID", input.CourseID), zap.Error(err))
 
-		// Пример обработки конкретных ошибок
-		if msg == "пользователь не найден" || msg == "курс не найден" {
+		// Маппинг ошибок на статусы
+		status := http.StatusInternalServerError
+		if err.Error() == "пользователь не найден" || err.Error() == "курс не найден" {
 			status = http.StatusNotFound
 		}
-
-		common.HandleError(c, common.HttpError(msg, status))
+		common.HandleError(c, common.HttpError(err.Error(), status))
 		return
 	}
 
-	// Если доступ уже есть (логическая ошибка, но не техническая)
 	if !output.Success {
-		c.JSON(http.StatusConflict, gin.H{
-			"error": output.Message,
-		})
+		zap.L().Info("Access already exists", zap.Int("userID", input.UserID), zap.Int("courseID", input.CourseID))
+		c.JSON(http.StatusConflict, gin.H{"error": output.Message})
 		return
 	}
 
-	// Успех
+	zap.L().Info("Access granted successfully", zap.Int("userID", input.UserID), zap.Int("courseID", input.CourseID))
 	c.JSON(http.StatusOK, gin.H{
 		"message":   output.Message,
 		"user_id":   input.UserID,

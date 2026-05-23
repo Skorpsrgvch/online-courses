@@ -11,10 +11,12 @@ VALUES
 ON CONFLICT (email) DO NOTHING;
 
 -- =============================================================================
--- 2. КУРСЫ (Обновлено с новыми полями)
+-- 2. КУРСЫ
+-- Используем ON CONFLICT DO NOTHING для идемпотентности
 -- =============================================================================
 
--- Курс 1: Женский курс (Бесплатный)
+-- Вспомогательная функция или просто последовательные INSERT с проверкой
+-- Курс 1: Женский курс
 INSERT INTO courses (title, description, is_public, price, author_id, is_active, cover_image_url, contraindications, recommendations, target_audience, course_basis, class_basis, bonuses)
 SELECT 
     'Женский курс', 
@@ -31,7 +33,7 @@ SELECT
     '[{"title": "МЕНОПАУЗА", "description": "Особенности периода", "icon": "video"}, {"title": "ПЕРЕД СНОМ", "description": "Практика 2-3 мин", "icon": "video"}, {"title": "САМОМАССАЖ", "description": "Улучшает лимфоток", "icon": "video"}]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM courses WHERE title = 'Женский курс');
 
--- Курс 2: Восстановление после родов (Платный)
+-- Курс 2: Восстановление после родов
 INSERT INTO courses (title, description, is_public, price, author_id, is_active, cover_image_url, contraindications, recommendations, target_audience, course_basis, class_basis, bonuses)
 SELECT 
     'Восстановление после родов', 
@@ -48,7 +50,7 @@ SELECT
     '[{"title": "Вебинар", "description": "Разбор ошибок", "icon": "video"}]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM courses WHERE title = 'Восстановление после родов');
 
--- Курс 3: Здоровая спина мамы (Платный)
+-- Курс 3: Здоровая спина мамы
 INSERT INTO courses (title, description, is_public, price, author_id, is_active, cover_image_url, contraindications, recommendations, target_audience, course_basis, class_basis, bonuses)
 SELECT
     'Здоровая спина мамы',
@@ -65,7 +67,7 @@ SELECT
     '[{"title": "Чек-лист", "description": "Эргономика быта", "icon": "file"}]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM courses WHERE title = 'Здоровая спина мамы');
 
--- Курс 4: Сила интимных мышц (Платный)
+-- Курс 4: Сила интимных мышц
 INSERT INTO courses (title, description, is_public, price, author_id, is_active, cover_image_url, contraindications, recommendations, target_audience, course_basis, class_basis, bonuses)
 SELECT
     'Сила интимных мышц',
@@ -82,7 +84,7 @@ SELECT
     '[{"title": "Аудиогид", "description": "Дыхательные практики", "icon": "audio"}]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM courses WHERE title = 'Сила интимных мышц');
 
--- Курс 5: Легкая беременность (Бесплатный)
+-- Курс 5: Легкая беременность
 INSERT INTO courses (title, description, is_public, price, author_id, is_active, cover_image_url, contraindications, recommendations, target_audience, course_basis, class_basis, bonuses)
 SELECT
     'Легкая беременность',
@@ -100,58 +102,70 @@ SELECT
 WHERE NOT EXISTS (SELECT 1 FROM courses WHERE title = 'Легкая беременность');
 
 -- =============================================================================
--- 3. МОДУЛИ И УРОКИ: ЖЕНСКИЙ КУРС
--- =============================================================================
--- Неделя 1
-INSERT INTO modules (course_id, title, "order") SELECT id, 'Неделя 1', 1 FROM courses WHERE title = 'Женский курс';
-INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order")
-SELECT m.id, 'Дыхание. Грудная клетка.', 'Первое занятие посвящено дыханию.', '7e8c5681487cd383d46a513aee7d0601', 'nJeUFf03iW39UEyULnRh2w', 1 FROM modules m JOIN courses c ON m.course_id = c.id WHERE c.title = 'Женский курс' AND m.title = 'Неделя 1';
-INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order")
-SELECT m.id, 'Работа с перикардом.', 'Мячик не нужен.', '70ef5b8c45818ee28152174035fcf490', '9h4lav1VzpqYCpRsZggeww', 2 FROM modules m JOIN courses c ON m.course_id = c.id WHERE c.title = 'Женский курс' AND m.title = 'Неделя 1';
-INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order")
-SELECT m.id, 'Работа с языком.', 'Нужна салфетка.', 'a34d5132da9445515f6948846a6b8f17', 'PvmACTvui-OzC2Y1_sVgvg', 3 FROM modules m JOIN courses c ON m.course_id = c.id WHERE c.title = 'Женский курс' AND m.title = 'Неделя 1';
-INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order")
-SELECT m.id, 'Практика МТД (часть 2).', 'Нужна опора под таз.', '5bdb9c6e72a90f207714b86088055930', 'g7uHW3rEFXySf-iKwfMhWw', 4 FROM modules m JOIN courses c ON m.course_id = c.id WHERE c.title = 'Женский курс' AND m.title = 'Неделя 1';
-INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order")
-SELECT m.id, 'Женская практика на каждый день.', 'Нужен болстер.', 'ced130ddbd12a767f04e8e0f5b73eb33', '7d63pyz-HbvUAdQHJc7nGw', 5 FROM modules m JOIN courses c ON m.course_id = c.id WHERE c.title = 'Женский курс' AND m.title = 'Неделя 1';
-
--- Неделя 2
-INSERT INTO modules (course_id, title, "order") SELECT id, 'Неделя 2', 2 FROM courses WHERE title = 'Женский курс';
-INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") SELECT m.id, 'Антидиастаз.', 'Нужен ремень.', 'e44cd2c3ff35ef42295da830f480030e', 'BwqaCaxopg0y6mvrTzNe3w', 1 FROM modules m JOIN courses c ON m.course_id = c.id WHERE c.title = 'Женский курс' AND m.title = 'Неделя 2';
-INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") SELECT m.id, 'Стабильный таз.', 'Нужны мячики.', '850e83ac57e788316f71366755a64dd5', 'KApx6z5iK0AcLE55kAZO_g', 2 FROM modules m JOIN courses c ON m.course_id = c.id WHERE c.title = 'Женский курс' AND m.title = 'Неделя 2';
-INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") SELECT m.id, 'Свободный позвоночник.', 'Нужен ремень.', '5c3b90c21f87403581ccd51d8f6f41e7', '2felxxdRIdIdybZJCfSSYA', 3 FROM modules m JOIN courses c ON m.course_id = c.id WHERE c.title = 'Женский курс' AND m.title = 'Неделя 2';
-
--- Неделя 3
-INSERT INTO modules (course_id, title, "order") SELECT id, 'Неделя 3', 3 FROM courses WHERE title = 'Женский курс';
-INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") SELECT m.id, 'Интеграция.', 'Сокращения МТД.', '209de268fb6ab2e4d2298bf018751bdb', 'GSw-B5n8Fy4gP1YxtI1ndA', 1 FROM modules m JOIN courses c ON m.course_id = c.id WHERE c.title = 'Женский курс' AND m.title = 'Неделя 3';
-INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") SELECT m.id, 'Терапевтические проходки.', 'Нужен блок.', '4bc97662acb81aa004c24674760255b8', 'DS8cprMTxk5wc1usE-znHg', 2 FROM modules m JOIN courses c ON m.course_id = c.id WHERE c.title = 'Женский курс' AND m.title = 'Неделя 3';
-INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") SELECT m.id, 'Работа у стены.', 'Нужен болстер.', 'c5e463257d3abc31daba0a582c6d9c29', '33r-JQgOlLt2nqp2trrscQ', 3 FROM modules m JOIN courses c ON m.course_id = c.id WHERE c.title = 'Женский курс' AND m.title = 'Неделя 3';
-
--- Неделя 4
-INSERT INTO modules (course_id, title, "order") SELECT id, 'Неделя 4', 4 FROM courses WHERE title = 'Женский курс';
-INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") SELECT m.id, 'Правка копчика.', 'Нужен болстер.', '951325b973a117f33a534cf6f53a649a', 'sNl5tNFIL3C-BEsc9i334g', 1 FROM modules m JOIN courses c ON m.course_id = c.id WHERE c.title = 'Женский курс' AND m.title = 'Неделя 4';
-INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") SELECT m.id, 'На четвереньках.', '', '82454a9bcd472f5b2a9292ce62fdea0c', 'PH9jPx1hwMBSmZXA9IyiCA', 2 FROM modules m JOIN courses c ON m.course_id = c.id WHERE c.title = 'Женский курс' AND m.title = 'Неделя 4';
-INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") SELECT m.id, 'На стуле.', 'Нужен шарф.', 'ab617f1ce081dfd08bb672f49eafddb9', 'Rvo08xFghYk5nl4swRnn5A', 3 FROM modules m JOIN courses c ON m.course_id = c.id WHERE c.title = 'Женский курс' AND m.title = 'Неделя 4';
-INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") SELECT m.id, 'Стопы.', 'Нужен мячик.', 'b1cd3963f4e27239c0344b811162b2ba', 'jQtWg6U4frOd-vjoUUyS3w', 4 FROM modules m JOIN courses c ON m.course_id = c.id WHERE c.title = 'Женский курс' AND m.title = 'Неделя 4';
-
--- Работа со шрамами
-INSERT INTO modules (course_id, title, "order") SELECT id, 'Работа со шрамами', 5 FROM courses WHERE title = 'Женский курс';
-INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") SELECT m.id, 'Самомассаж.', '', '54ee29ae0f51d5997562c5495ae35bcc', 'BDz729GpOPAL7ply5ESVKA', 1 FROM modules m JOIN courses c ON m.course_id = c.id WHERE c.title = 'Женский курс' AND m.title = 'Работа со шрамами';
-INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") SELECT m.id, 'Второй этап.', '', 'cce7262fc30fb1f0c4bb9d65999b3593', 'sUGh73pzwFLav450ugIADg', 2 FROM modules m JOIN courses c ON m.course_id = c.id WHERE c.title = 'Женский курс' AND m.title = 'Работа со шрамами';
-
--- Бонусы
-INSERT INTO modules (course_id, title, "order") SELECT id, 'Бонусы', 6 FROM courses WHERE title = 'Женский курс';
-INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") SELECT m.id, 'МЕНОПАУЗА.', '', 'da3452f6f267137e8098402f08b92cec', 'IRbf1CgojA-7kgE7kCrPEA', 1 FROM modules m JOIN courses c ON m.course_id = c.id WHERE c.title = 'Женский курс' AND m.title = 'Бонусы';
-INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") SELECT m.id, 'ПЕРЕД СНОМ.', 'Опора под таз.', 'b50f41b7fcb2cf03123c2d088d576f9a', 'V68r3_qWr7f0_9OaWd_ntg', 2 FROM modules m JOIN courses c ON m.course_id = c.id WHERE c.title = 'Женский курс' AND m.title = 'Бонусы';
-INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") SELECT m.id, 'Самомассаж живота.', 'От запоров.', '832fa6bf43064cbdd1302a201fd885db', 'AkmrgD5VemgGkJbXA894lA', 3 FROM modules m JOIN courses c ON m.course_id = c.id WHERE c.title = 'Женский курс' AND m.title = 'Бонусы';
-
--- =============================================================================
--- 4. МОДУЛИ И УРОКИ: ВОССТАНОВЛЕНИЕ ПОСЛЕ РОДОВ
+-- 3. МОДУЛИ И УРОКИ: ЖЕНСКИЙ КУРС (через DO блок для надежности)
 -- =============================================================================
 DO $$
 DECLARE c_id int; m_id int;
 BEGIN
+    SELECT id INTO c_id FROM courses WHERE title = 'Женский курс';
+    IF c_id IS NULL THEN RAISE NOTICE 'Course "Женский курс" not found'; RETURN; END IF;
+
+    -- Неделя 1
+    INSERT INTO modules (course_id, title, "order") VALUES (c_id, 'Неделя 1', 1) RETURNING id INTO m_id;
+    INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") VALUES
+    (m_id, 'Дыхание. Грудная клетка.', 'Первое занятие посвящено дыханию.', '7e8c5681487cd383d46a513aee7d0601', 'nJeUFf03iW39UEyULnRh2w', 1),
+    (m_id, 'Работа с перикардом.', 'Мячик не нужен.', '70ef5b8c45818ee28152174035fcf490', '9h4lav1VzpqYCpRsZggeww', 2),
+    (m_id, 'Работа с языком.', 'Нужна салфетка.', 'a34d5132da9445515f6948846a6b8f17', 'PvmACTvui-OzC2Y1_sVgvg', 3),
+    (m_id, 'Практика МТД (часть 2).', 'Нужна опора под таз.', '5bdb9c6e72a90f207714b86088055930', 'g7uHW3rEFXySf-iKwfMhWw', 4),
+    (m_id, 'Женская практика на каждый день.', 'Нужен болстер.', 'ced130ddbd12a767f04e8e0f5b73eb33', '7d63pyz-HbvUAdQHJc7nGw', 5);
+
+    -- Неделя 2
+    INSERT INTO modules (course_id, title, "order") VALUES (c_id, 'Неделя 2', 2) RETURNING id INTO m_id;
+    INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") VALUES
+    (m_id, 'Антидиастаз.', 'Нужен ремень.', 'e44cd2c3ff35ef42295da830f480030e', 'BwqaCaxopg0y6mvrTzNe3w', 1),
+    (m_id, 'Стабильный таз.', 'Нужны мячики.', '850e83ac57e788316f71366755a64dd5', 'KApx6z5iK0AcLE55kAZO_g', 2),
+    (m_id, 'Свободный позвоночник.', 'Нужен ремень.', '5c3b90c21f87403581ccd51d8f6f41e7', '2felxxdRIdIdybZJCfSSYA', 3);
+
+    -- Неделя 3
+    INSERT INTO modules (course_id, title, "order") VALUES (c_id, 'Неделя 3', 3) RETURNING id INTO m_id;
+    INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") VALUES
+    (m_id, 'Интеграция.', 'Сокращения МТД.', '209de268fb6ab2e4d2298bf018751bdb', 'GSw-B5n8Fy4gP1YxtI1ndA', 1),
+    (m_id, 'Терапевтические проходки.', 'Нужен блок.', '4bc97662acb81aa004c24674760255b8', 'DS8cprMTxk5wc1usE-znHg', 2),
+    (m_id, 'Работа у стены.', 'Нужен болстер.', 'c5e463257d3abc31daba0a582c6d9c29', '33r-JQgOlLt2nqp2trrscQ', 3);
+
+    -- Неделя 4
+    INSERT INTO modules (course_id, title, "order") VALUES (c_id, 'Неделя 4', 4) RETURNING id INTO m_id;
+    INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") VALUES
+    (m_id, 'Правка копчика.', 'Нужен болстер.', '951325b973a117f33a534cf6f53a649a', 'sNl5tNFIL3C-BEsc9i334g', 1),
+    (m_id, 'На четвереньках.', '', '82454a9bcd472f5b2a9292ce62fdea0c', 'PH9jPx1hwMBSmZXA9IyiCA', 2),
+    (m_id, 'На стуле.', 'Нужен шарф.', 'ab617f1ce081dfd08bb672f49eafddb9', 'Rvo08xFghYk5nl4swRnn5A', 3),
+    (m_id, 'Стопы.', 'Нужен мячик.', 'b1cd3963f4e27239c0344b811162b2ba', 'jQtWg6U4frOd-vjoUUyS3w', 4);
+
+    -- Работа со шрамами
+    INSERT INTO modules (course_id, title, "order") VALUES (c_id, 'Работа со шрамами', 5) RETURNING id INTO m_id;
+    INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") VALUES
+    (m_id, 'Самомассаж.', '', '54ee29ae0f51d5997562c5495ae35bcc', 'BDz729GpOPAL7ply5ESVKA', 1),
+    (m_id, 'Второй этап.', '', 'cce7262fc30fb1f0c4bb9d65999b3593', 'sUGh73pzwFLav450ugIADg', 2);
+
+    -- Бонусы
+    INSERT INTO modules (course_id, title, "order") VALUES (c_id, 'Бонусы', 6) RETURNING id INTO m_id;
+    INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") VALUES
+    (m_id, 'МЕНОПАУЗА.', '', 'da3452f6f267137e8098402f08b92cec', 'IRbf1CgojA-7kgE7kCrPEA', 1),
+    (m_id, 'ПЕРЕД СНОМ.', 'Опора под таз.', 'b50f41b7fcb2cf03123c2d088d576f9a', 'V68r3_qWr7f0_9OaWd_ntg', 2),
+    (m_id, 'Самомассаж живота.', 'От запоров.', '832fa6bf43064cbdd1302a201fd885db', 'AkmrgD5VemgGkJbXA894lA', 3);
+END $$;
+
+-- =============================================================================
+-- 4. ОСТАЛЬНЫЕ КУРСЫ (Восстановление, Спина, Интим, Беременность)
+-- Структура аналогична, используем DO блоки
+-- =============================================================================
+
+-- Восстановление после родов
+DO $$
+DECLARE c_id int; m_id int;
+BEGIN
     SELECT id INTO c_id FROM courses WHERE title = 'Восстановление после родов';
+    IF c_id IS NULL THEN RETURN; END IF;
     
     INSERT INTO modules (course_id, title, "order") VALUES (c_id, 'Первые дни', 1) RETURNING id INTO m_id;
     INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") VALUES
@@ -178,13 +192,12 @@ BEGIN
     (m_id, 'Бытовые дела.', 'Эргономика.', 'b1cd3963f4e27239c0344b811162b2ba', 'jQtWg6U4frOd-vjoUUyS3w', 3);
 END $$;
 
--- =============================================================================
--- 5. МОДУЛИ И УРОКИ: ЗДОРОВАЯ СПИНА МАМЫ
--- =============================================================================
+-- Здоровая спина мамы
 DO $$
 DECLARE c_id int; m_id int;
 BEGIN
     SELECT id INTO c_id FROM courses WHERE title = 'Здоровая спина мамы';
+    IF c_id IS NULL THEN RETURN; END IF;
     
     INSERT INTO modules (course_id, title, "order") VALUES (c_id, 'Мобилизация', 1) RETURNING id INTO m_id;
     INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") VALUES
@@ -211,13 +224,12 @@ BEGIN
     (m_id, 'Сон и отдых.', 'Организация.', 'b1cd3963f4e27239c0344b811162b2ba', 'jQtWg6U4frOd-vjoUUyS3w', 3);
 END $$;
 
--- =============================================================================
--- 6. МОДУЛИ И УРОКИ: СИЛА ИНТИМНЫХ МЫШЦ
--- =============================================================================
+-- Сила интимных мышц
 DO $$
 DECLARE c_id int; m_id int;
 BEGIN
     SELECT id INTO c_id FROM courses WHERE title = 'Сила интимных мышц';
+    IF c_id IS NULL THEN RETURN; END IF;
     
     INSERT INTO modules (course_id, title, "order") VALUES (c_id, 'Анатомия', 1) RETURNING id INTO m_id;
     INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") VALUES
@@ -244,13 +256,12 @@ BEGIN
     (m_id, 'В спорте.', 'Защита.', 'b1cd3963f4e27239c0344b811162b2ba', 'jQtWg6U4frOd-vjoUUyS3w', 3);
 END $$;
 
--- =============================================================================
--- 7. МОДУЛИ И УРОКИ: ЛЕГКАЯ БЕРЕМЕННОСТЬ
--- =============================================================================
+-- Легкая беременность
 DO $$
 DECLARE c_id int; m_id int;
 BEGIN
     SELECT id INTO c_id FROM courses WHERE title = 'Легкая беременность';
+    IF c_id IS NULL THEN RETURN; END IF;
     
     INSERT INTO modules (course_id, title, "order") VALUES (c_id, '1 Триместр', 1) RETURNING id INTO m_id;
     INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") VALUES
@@ -278,39 +289,8 @@ BEGIN
 END $$;
 
 -- =============================================================================
--- 8. ПОКУПКИ И ОТЗЫВЫ
+-- 5. УСЛУГИ (Services)
 -- =============================================================================
-
--- Покупка
-INSERT INTO user_purchases (user_id, course_id)
-SELECT u.id, c.id
-FROM users u, courses c
-WHERE u.email = 'user1@test.ru'
-  AND c.title = 'Восстановление после родов'
-  AND NOT EXISTS (SELECT 1 FROM user_purchases p WHERE p.user_id = u.id AND p.course_id = c.id);
-
--- Отзывы (упрощенная вставка по одному, чтобы избежать ошибок)
-INSERT INTO reviews (user_id, course_id, text, rating, approved, created_at)
-SELECT u.id, c.id, 'Отличный курс! Очень помогло восстановить силы.', 5, false, NOW()
-FROM users u, courses c WHERE u.email = 'user1@test.ru' AND c.title = 'Женский курс'
-ON CONFLICT (user_id, course_id) DO UPDATE SET text = EXCLUDED.text;
-
-INSERT INTO reviews (user_id, course_id, text, rating, approved, created_at)
-SELECT u.id, c.id, 'Наконец-то прошла боль в пояснице!', 4, false, NOW()
-FROM users u, courses c WHERE u.email = 'user2@test.ru' AND c.title = 'Здоровая спина мамы'
-ON CONFLICT (user_id, course_id) DO UPDATE SET text = EXCLUDED.text;
-
-INSERT INTO reviews (user_id, course_id, text, rating, approved, created_at)
-SELECT u.id, c.id, 'Результат почувствовала через 2 недели.', 3, false, NOW()
-FROM users u, courses c WHERE u.email = 'user3@test.ru' AND c.title = 'Сила интимных мышц'
-ON CONFLICT (user_id, course_id) DO UPDATE SET text = EXCLUDED.text;
-
-INSERT INTO reviews (user_id, course_id, text, rating, approved, created_at)
-SELECT u.id, c.id, 'Курс помог подготовиться к родам.', 5, false, NOW()
-FROM users u, courses c WHERE u.email = 'user4@test.ru' AND c.title = 'Легкая беременность'
-ON CONFLICT (user_id, course_id) DO UPDATE SET text = EXCLUDED.text;
-
-
 INSERT INTO services (title, description, price, duration_minutes) VALUES
 (
     'Бесплатная диагностическая консультация',
@@ -374,4 +354,47 @@ INSERT INTO services (title, description, price, duration_minutes) VALUES
     Услуга доступна с выездом на дом.',
     4000,
     90
-);
+)
+ON CONFLICT DO NOTHING; -- На случай если таблица не была удалена полностью или есть PK конфликт
+
+-- =============================================================================
+-- 6. ПОКУПКИ И ОТЗЫВЫ
+-- =============================================================================
+
+-- Покупка
+INSERT INTO user_purchases (user_id, course_id)
+SELECT u.id, c.id
+FROM users u, courses c
+WHERE u.email = 'user1@test.ru'
+  AND c.title = 'Восстановление после родов'
+  AND NOT EXISTS (SELECT 1 FROM user_purchases p WHERE p.user_id = u.id AND p.course_id = c.id);
+
+-- Отзывы
+-- Функция для безопасной вставки отзыва
+CREATE OR REPLACE FUNCTION insert_review_safe(u_email TEXT, c_title TEXT, r_text TEXT, r_rating INT) RETURNS VOID AS $$
+DECLARE u_id INT; c_id INT;
+BEGIN
+    SELECT id INTO u_id FROM users WHERE email = u_email;
+    SELECT id INTO c_id FROM courses WHERE title = c_title;
+    
+    IF u_id IS NOT NULL AND c_id IS NOT NULL THEN
+        INSERT INTO reviews (user_id, course_id, text, rating, approved, rejection_reason, created_at)
+        VALUES (u_id, c_id, r_text, r_rating, false, NULL, NOW())
+        ON CONFLICT (user_id, course_id) DO UPDATE SET 
+            text = EXCLUDED.text,
+            rating = EXCLUDED.rating,
+            approved = EXCLUDED.approved,
+            rejection_reason = NULL,
+            created_at = NOW(); -- Обновляем дату при редактировании
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Вызов функции для вставки отзывов
+SELECT insert_review_safe('user1@test.ru', 'Женский курс', 'Отличный курс! Очень помогло восстановить силы.', 5);
+SELECT insert_review_safe('user2@test.ru', 'Здоровая спина мамы', 'Наконец-то прошла боль в пояснице!', 4);
+SELECT insert_review_safe('user3@test.ru', 'Сила интимных мышц', 'Результат почувствовала через 2 недели.', 3);
+SELECT insert_review_safe('user4@test.ru', 'Легкая беременность', 'Курс помог подготовиться к родам.', 5);
+
+-- Удаляем временную функцию
+DROP FUNCTION IF EXISTS insert_review_safe;

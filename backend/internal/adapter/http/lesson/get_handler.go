@@ -5,13 +5,10 @@ import (
 	"strconv"
 
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
-	"github.com/Skorpsrgvch/online-courses/internal/usecase/lesson/get"
+	getUC "github.com/Skorpsrgvch/online-courses/internal/usecase/lesson/get"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
-
-type getLessonsResponse struct {
-	Lessons []lessonDTO `json:"lessons"`
-}
 
 type lessonDTO struct {
 	ID           int     `json:"id"`
@@ -19,33 +16,39 @@ type lessonDTO struct {
 	Title        string  `json:"title"`
 	Description  string  `json:"description"`
 	VideoEmbedID string  `json:"video_embed_id"`
-	PrivateKey   *string `json:"private_key"`
+	PrivateKey   *string `json:"private_key,omitempty"`
 	Order        int     `json:"order"`
 }
 
 type GetHandler struct {
-	usecase *get.Usecase
+	usecase *getUC.Usecase
 }
 
-func NewGetHandler(usecase *get.Usecase) *GetHandler {
+func NewGetHandler(usecase *getUC.Usecase) *GetHandler {
 	return &GetHandler{usecase: usecase}
 }
 
 func (h *GetHandler) Handle(c *gin.Context) {
-	moduleID, err := strconv.Atoi(c.Param("id"))
+	idStr := c.Param("id")
+	moduleID, err := strconv.Atoi(idStr)
 	if err != nil {
+		zap.L().Debug("Invalid module ID format", zap.String("id", idStr), zap.Error(err))
 		common.HandleError(c, common.HttpError("invalid module ID", http.StatusBadRequest))
 		return
 	}
 
-	input := get.Input{ModuleID: moduleID}
+	zap.L().Debug("Getting lessons for module", zap.Int("moduleID", moduleID))
+
+	input := getUC.Input{ModuleID: moduleID}
 	output, err := h.usecase.Execute(c.Request.Context(), input)
 	if err != nil {
+		zap.L().Error("Failed to get lessons", zap.Int("moduleID", moduleID), zap.Error(err))
 		common.HandleError(c, err)
 		return
 	}
 
-	var lessons []lessonDTO
+	// Маппинг в DTO (можно оптимизировать, если domain.Lesson полностью совместим)
+	lessons := make([]lessonDTO, 0, len(output.Lessons))
 	for _, l := range output.Lessons {
 		lessons = append(lessons, lessonDTO{
 			ID:           l.ID,
@@ -58,5 +61,6 @@ func (h *GetHandler) Handle(c *gin.Context) {
 		})
 	}
 
-	c.JSON(http.StatusOK, getLessonsResponse{Lessons: lessons})
+	zap.L().Info("Lessons retrieved", zap.Int("moduleID", moduleID), zap.Int("count", len(lessons)))
+	c.JSON(http.StatusOK, gin.H{"lessons": lessons})
 }

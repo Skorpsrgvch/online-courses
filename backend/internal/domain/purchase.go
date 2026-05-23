@@ -3,9 +3,9 @@ package domain
 import "time"
 
 type Purchase struct {
-	UserID      int
-	CourseID    int
-	PurchasedAt time.Time
+	UserID      int       `json:"user_id"`
+	CourseID    int       `json:"course_id"`
+	PurchasedAt time.Time `json:"purchased_at"`
 }
 
 type CourseWithDate struct {

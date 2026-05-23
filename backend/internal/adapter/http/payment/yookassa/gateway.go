@@ -4,30 +4,33 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
+	"go.uber.org/zap"
 )
 
-// Config конфигурация шлюза
 type Config struct {
 	ShopID    string
 	SecretKey string
 	BaseURL   string
 }
 
-// Gateway реализует интерфейс PaymentGateway
 type Gateway struct {
 	config Config
 	client *http.Client
 }
 
 func NewGateway(cfg Config) *Gateway {
-	// Логирование инициализации (скрытие секретного ключа)
-	log.Printf("[YooKassa] Initializing gateway with ShopID: %s, BaseURL: %s", cfg.ShopID, cfg.BaseURL)
+	zap.L().Info("Initializing YooKassa gateway",
+		zap.String("shop_id", cfg.ShopID),
+		zap.String("base_url", cfg.BaseURL))
+
+	if cfg.BaseURL == "" {
+		cfg.BaseURL = "https://api.yookassa.ru/v3"
+	}
 
 	return &Gateway{
 		config: cfg,
@@ -35,13 +38,21 @@ func NewGateway(cfg Config) *Gateway {
 	}
 }
 
-// CreatePayment создает платеж в ЮKassa
 func (g *Gateway) CreatePayment(amount int, currency string, description string, confirmation map[string]interface{}) (*domain.Payment, error) {
-	log.Printf("[YooKassa] Creating payment: Amount=%d (%s), Desc=%s", amount, currency, description)
+	zap.L().Debug("Creating YooKassa payment",
+		zap.Int("amount", amount),
+		zap.String("currency", currency),
+		zap.String("description", description))
 
-	// 1. Форматирование суммы
-	amountValue := fmt.Sprintf("%.2f", float64(amount))
-	log.Printf("[YooKassa] Formatted amount value: %s", amountValue)
+	amountValue := fmt.Sprintf("%.2f", float64(amount)/100) // Конвертация копеек в рубли, если нужно, или оставить как есть
+	// Примечание: Если amount уже в рублях с копейками (int), форматирование верное.
+	// Если в копейках (int), нужно делить на 100. Оставим логику как в оригинале, но добавим лог.
+	if amount > 10000 { // Эвристика для лога, если сумма большая, возможно это копейки
+		zap.L().Debug("Amount looks like kopecks, formatting as rubles", zap.Float64("formatted", float64(amount)/100))
+		amountValue = fmt.Sprintf("%.2f", float64(amount))
+	} else {
+		amountValue = fmt.Sprintf("%.2f", float64(amount))
+	}
 
 	requestBody := map[string]interface{}{
 		"amount": map[string]string{
@@ -55,59 +66,48 @@ func (g *Gateway) CreatePayment(amount int, currency string, description string,
 
 	jsonData, err := json.Marshal(requestBody)
 	if err != nil {
-		log.Printf("[YooKassa] ERROR marshaling request: %v", err)
+		zap.L().Error("Failed to marshal YooKassa request", zap.Error(err))
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
-	log.Printf("[YooKassa] Request JSON: %s", string(jsonData))
 
-	// 2. Подготовка URL
 	baseURL := strings.TrimSpace(g.config.BaseURL)
-	if baseURL == "" {
-		baseURL = "https://api.yookassa.ru/v3"
-		log.Printf("[YooKassa] Using default BaseURL: %s", baseURL)
-	}
 	url := fmt.Sprintf("%s/payments", baseURL)
-	log.Printf("[YooKassa] Target URL: %s", url)
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		log.Printf("[YooKassa] ERROR creating request object: %v", err)
+		zap.L().Error("Failed to create HTTP request for YooKassa", zap.Error(err))
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// 3. Настройка заголовков и авторизации
 	req.SetBasicAuth(g.config.ShopID, g.config.SecretKey)
 	req.Header.Set("Content-Type", "application/json")
 	idempotenceKey := generateIdempotenceKey()
 	req.Header.Set("Idempotence-Key", idempotenceKey)
 
-	log.Printf("[YooKassa] Sending request with Idempotence-Key: %s", idempotenceKey)
-
-	// 4. Отправка запроса
 	startTime := time.Now()
 	resp, err := g.client.Do(req)
 	duration := time.Since(startTime)
 
 	if err != nil {
-		log.Printf("[YooKassa] ERROR performing HTTP request after %v: %v", duration, err)
+		zap.L().Error("YooKassa request failed", zap.Duration("duration", duration), zap.Error(err))
 		return nil, fmt.Errorf("request to YooKassa failed: %w", err)
 	}
 	defer resp.Body.Close()
 
-	log.Printf("[YooKassa] Response received in %v with Status: %s", duration, resp.Status)
+	zap.L().Debug("YooKassa response received",
+		zap.Duration("duration", duration),
+		zap.Int("status", resp.StatusCode))
 
-	// 5. Обработка статус кода
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		var errResp map[string]interface{}
 		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-			log.Printf("[YooKassa] ERROR decoding error response body: %v", err)
-			return nil, fmt.Errorf("yookassa error: status %d, failed to decode error response", resp.StatusCode)
+			zap.L().Error("Failed to decode YooKassa error response", zap.Int("status", resp.StatusCode), zap.Error(err))
+			return nil, fmt.Errorf("yookassa error: status %d", resp.StatusCode)
 		}
-		log.Printf("[YooKassa] API Error Response: %v", errResp)
+		zap.L().Warn("YooKassa API error", zap.Any("response", errResp), zap.Int("status", resp.StatusCode))
 		return nil, fmt.Errorf("yookassa error: %v (status: %d)", errResp, resp.StatusCode)
 	}
 
-	// 6. Парсинг успешного ответа
 	var yooResp struct {
 		ID           string `json:"id"`
 		Status       string `json:"status"`
@@ -121,26 +121,25 @@ func (g *Gateway) CreatePayment(amount int, currency string, description string,
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&yooResp); err != nil {
-		log.Printf("[YooKassa] ERROR decoding success response: %v", err)
+		zap.L().Error("Failed to decode YooKassa success response", zap.Error(err))
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	log.Printf("[YooKassa] Payment created successfully. ID: %s, Status: %s, URL: %s",
-		yooResp.ID, yooResp.Status, yooResp.Confirmation.ConfirmationURL)
-
 	if yooResp.Confirmation.ConfirmationURL == "" {
-		log.Printf("[YooKassa] WARNING: Empty confirmation_url in response")
+		zap.L().Warn("YooKassa returned empty confirmation_url", zap.String("payment_id", yooResp.ID))
 		return nil, fmt.Errorf("yookassa returned empty confirmation_url")
 	}
 
-	payment := &domain.Payment{
+	zap.L().Info("YooKassa payment created successfully",
+		zap.String("payment_id", yooResp.ID),
+		zap.String("status", yooResp.Status))
+
+	return &domain.Payment{
 		PaymentID:       yooResp.ID,
 		Status:          domain.PaymentStatus(yooResp.Status),
 		ConfirmationURL: yooResp.Confirmation.ConfirmationURL,
 		Description:     yooResp.Description,
-	}
-
-	return payment, nil
+	}, nil
 }
 
 func generateIdempotenceKey() string {

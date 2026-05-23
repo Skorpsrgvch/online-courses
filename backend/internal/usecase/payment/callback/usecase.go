@@ -3,12 +3,40 @@ package callback
 import (
 	"context"
 	"errors"
-	"log"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
+	"go.uber.org/zap"
 )
 
+type PaymentRepository interface {
+	GetByID(ctx context.Context, paymentID string) (*domain.Payment, error)
+	Update(ctx context.Context, payment *domain.Payment) error
+}
+
+type PurchaseCreator interface {
+	Create(ctx context.Context, userID, courseID int, paymentID string) error
+}
+
+type Input struct {
+	PaymentID string `json:"payment_id"`
+	Status    string `json:"status"`
+}
+
+type Output struct {
+	PaymentID string `json:"payment_id"`
+	Status    string `json:"status"`
+	Processed bool   `json:"processed"`
+}
+
+type UseCase struct {
+	paymentRepo     PaymentRepository
+	purchaseCreator PurchaseCreator
+}
+
 func NewUseCase(paymentRepo PaymentRepository, purchaseCreator PurchaseCreator) *UseCase {
+	if paymentRepo == nil || purchaseCreator == nil {
+		zap.L().Fatal("Failed to initialize PaymentCallbackUseCase: dependencies are nil")
+	}
 	return &UseCase{
 		paymentRepo:     paymentRepo,
 		purchaseCreator: purchaseCreator,
@@ -16,46 +44,66 @@ func NewUseCase(paymentRepo PaymentRepository, purchaseCreator PurchaseCreator) 
 }
 
 func (u *UseCase) Execute(ctx context.Context, input Input) (*Output, error) {
+	zap.L().Info("Payment callback received", zap.String("paymentID", input.PaymentID), zap.String("status", input.Status))
+
 	payment, err := u.paymentRepo.GetByID(ctx, input.PaymentID)
 	if err != nil {
 		if errors.Is(err, domain.ErrPaymentNotFound) {
-			log.Printf("[Callback] Payment not found: %s", input.PaymentID)
+			zap.L().Warn("Payment not found in callback", zap.String("paymentID", input.PaymentID))
 			return &Output{Processed: false}, domain.ErrPaymentNotFound
 		}
+		zap.L().Error("Failed to get payment by ID", zap.String("paymentID", input.PaymentID), zap.Error(err))
 		return &Output{Processed: false}, err
 	}
 
-	log.Printf("[Callback] Received status '%s' for payment %s (current status: %s)", input.Status, input.PaymentID, payment.Status)
+	zap.L().Debug("Current payment status", zap.String("currentStatus", string(payment.Status)))
 
-	// Если платеж уже обработан, ничего не делаем (идемпотентность)
+	// Идемпотентность: если уже успешно обработан
 	if payment.Status == domain.PaymentStatusSucceeded {
+		zap.L().Info("Payment already succeeded, skipping processing", zap.String("paymentID", input.PaymentID))
 		return &Output{Processed: true, Status: string(payment.Status)}, nil
 	}
 
 	switch input.Status {
 	case "succeeded", "waiting_for_capture":
-		// Обновляем статус
+		zap.L().Info("Processing successful payment", zap.String("paymentID", input.PaymentID))
 		payment.SetSucceeded()
+
 		if err := u.paymentRepo.Update(ctx, payment); err != nil {
-			log.Printf("[Callback] Error updating payment status: %v", err)
+			zap.L().Error("Failed to update payment status to succeeded", zap.String("paymentID", input.PaymentID), zap.Error(err))
 			return &Output{Processed: false}, err
 		}
 
-		// !!! ВАЖНО: Создаем покупку только после успешного обновления статуса
-		log.Printf("[Callback] Creating purchase for user %d, course %d", payment.UserID, payment.CourseID)
+		// Создаем покупку
 		if err := u.purchaseCreator.Create(ctx, payment.UserID, payment.CourseID, payment.PaymentID); err != nil {
-			// Если ошибка создания покупки (например, дубликат), логируем, но считаем обработку успешной,
-			// так как платеж уже прошел.
-			log.Printf("[Callback] Warning: failed to create purchase record (might be duplicate): %v", err)
+			// Логируем ошибку, но не прерываем процесс, т.к. платеж уже успешен
+			zap.L().Warn("Failed to create purchase record (possible duplicate)",
+				zap.String("paymentID", input.PaymentID),
+				zap.Int("userID", payment.UserID),
+				zap.Int("courseID", payment.CourseID),
+				zap.Error(err))
+		} else {
+			zap.L().Info("Purchase created successfully", zap.Int("userID", payment.UserID), zap.Int("courseID", payment.CourseID))
 		}
 
 	case "canceled":
+		zap.L().Info("Processing canceled payment", zap.String("paymentID", input.PaymentID))
 		payment.SetCanceled()
-		_ = u.paymentRepo.Update(ctx, payment)
+		if err := u.paymentRepo.Update(ctx, payment); err != nil {
+			zap.L().Error("Failed to update payment status to canceled", zap.String("paymentID", input.PaymentID), zap.Error(err))
+			return &Output{Processed: false}, err
+		}
 
 	case "failed":
+		zap.L().Info("Processing failed payment", zap.String("paymentID", input.PaymentID))
 		payment.SetFailed()
-		_ = u.paymentRepo.Update(ctx, payment)
+		if err := u.paymentRepo.Update(ctx, payment); err != nil {
+			zap.L().Error("Failed to update payment status to failed", zap.String("paymentID", input.PaymentID), zap.Error(err))
+			return &Output{Processed: false}, err
+		}
+
+	default:
+		zap.L().Warn("Unknown payment status received", zap.String("status", input.Status), zap.String("paymentID", input.PaymentID))
 	}
 
 	return &Output{

@@ -1,13 +1,14 @@
 package middleware
 
 import (
-	"log"
-	"os"
 	"strings"
 	"time"
 
+	"os"
+
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"go.uber.org/zap"
 )
 
 const (
@@ -22,7 +23,8 @@ var jwtSecret []byte
 func init() {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		log.Println("WARNING: JWT_SECRET not set, using default value")
+		// В продакшене лучше паниковать, если секрет не задан, но для совместимости оставим warning
+		zap.L().Warn("JWT_SECRET is not set, using empty secret (unsafe for production)")
 	}
 	jwtSecret = []byte(secret)
 }
@@ -90,6 +92,7 @@ func ParseToken(tokenString string) (*Claims, error) {
 }
 
 // AuthMiddleware проверяет токен. Если токен есть, но невалиден — возвращает 401.
+// Если токена нет — пропускает запрос дальше (для публичных эндпоинтов внутри защищенной группы).
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
@@ -100,6 +103,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		if !strings.HasPrefix(authHeader, "Bearer ") {
+			zap.L().Debug("Invalid authorization header format", zap.String("header", authHeader))
 			c.JSON(401, gin.H{"error": "неверный формат токена"})
 			c.Abort()
 			return
@@ -109,7 +113,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		claims, err := ParseToken(tokenString)
 
 		if err != nil {
-			log.Printf("Invalid token: %v", err)
+			zap.L().Info("Invalid token", zap.Error(err))
 			c.JSON(401, gin.H{"error": "неавторизован"})
 			c.Abort()
 			return
@@ -124,10 +128,12 @@ func AuthMiddleware() gin.HandlerFunc {
 	}
 }
 
+// RequireAuth гарантирует, что пользователь авторизован.
 func RequireAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID := GetUserID(c)
 		if userID == 0 {
+			zap.L().Debug("Access denied: user not authenticated")
 			c.JSON(401, gin.H{"error": "требуется авторизация"})
 			c.Abort()
 			return
@@ -136,12 +142,17 @@ func RequireAuth() gin.HandlerFunc {
 	}
 }
 
+// RequireAdmin проверяет роль администратора. Возвращает false, если роль не admin.
 func RequireAdmin(c *gin.Context) bool {
 	role, exists := c.Get(RoleKey)
 	if !exists {
 		return false
 	}
-	return role == "admin"
+	isAdmin := role == "admin"
+	if !isAdmin {
+		zap.L().Warn("Access denied: user is not admin", zap.Any("role", role))
+	}
+	return isAdmin
 }
 
 func GetUserID(c *gin.Context) int {

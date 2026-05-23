@@ -5,10 +5,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/Skorpsrgvch/online-courses/internal/usecase/auth/resetpassword"
+	"go.uber.org/zap"
 )
 
 type ResetTokenRepo struct {
@@ -17,40 +17,43 @@ type ResetTokenRepo struct {
 
 func NewResetTokenRepo(db *sql.DB) *ResetTokenRepo {
 	if db == nil {
-		log.Fatal("Database connection is nil for ResetTokenRepo")
+		zap.L().Fatal("Database connection is nil for ResetTokenRepo")
 	}
 	return &ResetTokenRepo{db: db}
 }
 
 // CreateCode сохраняет код восстановления в БД
 func (r *ResetTokenRepo) CreateCode(ctx context.Context, userID int, code string, expiresAt time.Time) error {
-	log.Printf("[ResetTokenRepo] CreateCode called: userID=%d, expiresAt=%s", userID, expiresAt.Format(time.RFC3339))
+	zap.L().Debug("CreateCode called", zap.Int("user_id", userID), zap.Time("expires_at", expiresAt))
 
 	// Инвалидация старых кодов
 	queryInvalidate := `UPDATE password_reset_tokens SET used = TRUE WHERE user_id = $1 AND used = FALSE AND expires_at > NOW()`
 	res, err := r.db.ExecContext(ctx, queryInvalidate, userID)
 	if err != nil {
-		log.Printf("[ResetTokenRepo] CreateCode error (invalidating old codes): %v", err)
+		zap.L().Error("CreateCode: failed to invalidate old codes", zap.Error(err))
 		return fmt.Errorf("failed to invalidate old codes: %w", err)
 	}
+
 	rowsAffected, _ := res.RowsAffected()
-	log.Printf("[ResetTokenRepo] Invalidated %d old codes for user %d", rowsAffected, userID)
+	if rowsAffected > 0 {
+		zap.L().Debug("Invalidated old codes", zap.Int("count", int(rowsAffected)), zap.Int("user_id", userID))
+	}
 
 	// Вставка нового кода
 	queryInsert := `INSERT INTO password_reset_tokens (user_id, token, expires_at, used) VALUES ($1, $2, $3, FALSE)`
 	_, err = r.db.ExecContext(ctx, queryInsert, userID, code, expiresAt)
 	if err != nil {
-		log.Printf("[ResetTokenRepo] CreateCode error (inserting new code): %v", err)
+		zap.L().Error("CreateCode: failed to insert new code", zap.Error(err))
 		return fmt.Errorf("failed to insert new code: %w", err)
 	}
 
-	log.Printf("[ResetTokenRepo] CreateCode success: code created for user %d", userID)
+	zap.L().Info("Reset code created", zap.Int("user_id", userID))
 	return nil
 }
 
 // GetByCode ищет запись по коду
 func (r *ResetTokenRepo) GetByCode(ctx context.Context, code string) (*resetpassword.TokenData, error) {
-	log.Printf("[ResetTokenRepo] GetByCode called: code=%s", code)
+	zap.L().Debug("GetByCode called", zap.String("code", code))
 
 	var data resetpassword.TokenData
 	query := `SELECT user_id, expires_at, used FROM password_reset_tokens WHERE token = $1`
@@ -59,64 +62,63 @@ func (r *ResetTokenRepo) GetByCode(ctx context.Context, code string) (*resetpass
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			log.Printf("[ResetTokenRepo] GetByCode result: code not found")
+			zap.L().Debug("GetByCode: code not found")
 			return nil, errors.New("invalid code")
 		}
-		log.Printf("[ResetTokenRepo] GetByCode database error: %v", err)
+		zap.L().Error("GetByCode: database scan failed", zap.Error(err))
 		return nil, fmt.Errorf("database scan failed: %w", err)
 	}
 
-	log.Printf("[ResetTokenRepo] GetByCode success: found code for user %d, used=%v, expires=%s",
-		data.UserID, data.Used, data.ExpiresAt.Format(time.RFC3339))
+	zap.L().Debug("GetByCode success", zap.Int("user_id", data.UserID), zap.Bool("used", data.Used))
 	return &data, nil
 }
 
 // MarkTokenUsed помечает код как использованный
 func (r *ResetTokenRepo) MarkTokenUsed(ctx context.Context, code string) error {
-	log.Printf("[ResetTokenRepo] MarkTokenUsed called: code=%s", code)
+	zap.L().Debug("MarkTokenUsed called", zap.String("code", code))
 
 	query := `UPDATE password_reset_tokens SET used = TRUE WHERE token = $1`
 	res, err := r.db.ExecContext(ctx, query, code)
 	if err != nil {
-		log.Printf("[ResetTokenRepo] MarkTokenUsed error: %v", err)
+		zap.L().Error("MarkTokenUsed failed", zap.Error(err))
 		return fmt.Errorf("failed to mark code as used: %w", err)
 	}
 
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		log.Printf("[ResetTokenRepo] MarkTokenUsed error getting rows affected: %v", err)
+		zap.L().Warn("MarkTokenUsed: failed to get rows affected", zap.Error(err))
 		return err
 	}
 
 	if rowsAffected == 0 {
-		log.Printf("[ResetTokenRepo] MarkTokenUsed warning: no rows updated for code %s", code)
+		zap.L().Warn("MarkTokenUsed: no rows updated", zap.String("code", code))
 		return errors.New("code not found or already used")
 	}
 
-	log.Printf("[ResetTokenRepo] MarkTokenUsed success: code %s marked as used", code)
+	zap.L().Info("Reset code marked as used", zap.String("code", code))
 	return nil
 }
 
-// InvalidateOldCodes (опционально)
+// InvalidateOldCodes помечает все коды пользователя как использованные
 func (r *ResetTokenRepo) InvalidateOldCodes(ctx context.Context, userID int) error {
-	log.Printf("[ResetTokenRepo] InvalidateOldCodes called: userID=%d", userID)
+	zap.L().Debug("InvalidateOldCodes called", zap.Int("user_id", userID))
 
 	query := `UPDATE password_reset_tokens SET used = TRUE WHERE user_id = $1`
 	res, err := r.db.ExecContext(ctx, query, userID)
 	if err != nil {
-		log.Printf("[ResetTokenRepo] InvalidateOldCodes error: %v", err)
+		zap.L().Error("InvalidateOldCodes failed", zap.Error(err))
 		return err
 	}
 
 	rowsAffected, _ := res.RowsAffected()
-	log.Printf("[ResetTokenRepo] InvalidateOldCodes success: %d rows updated", rowsAffected)
+	zap.L().Info("InvalidateOldCodes completed", zap.Int("rows_affected", int(rowsAffected)))
 	return nil
 }
 
+// GetLastCodeTime возвращает время создания последнего активного кода
 func (r *ResetTokenRepo) GetLastCodeTime(ctx context.Context, userID int) (time.Time, error) {
 	var createdAt time.Time
 
-	// Берем самый свежий неиспользованный токен
 	query := `SELECT created_at FROM password_reset_tokens 
 	          WHERE user_id = $1 AND used = FALSE AND expires_at > NOW() 
 	          ORDER BY created_at DESC LIMIT 1`

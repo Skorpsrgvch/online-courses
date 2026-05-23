@@ -7,6 +7,7 @@ import (
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
 	"github.com/Skorpsrgvch/online-courses/internal/usecase/payment/list"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type ListHandler struct {
@@ -30,10 +31,9 @@ func (h *ListHandler) Handle(c *gin.Context) {
 		return
 	}
 
-	input := list.Input{
-		UserID: userID,
-	}
+	zap.L().Debug("Listing payments", zap.Int("user_id", userID))
 
+	input := list.Input{UserID: userID}
 	output, err := h.usecase.Execute(c.Request.Context(), input)
 	if err != nil {
 		common.HandleError(c, err)

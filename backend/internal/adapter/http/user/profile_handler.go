@@ -8,6 +8,7 @@ import (
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
 	userprofile "github.com/Skorpsrgvch/online-courses/internal/usecase/user/profile"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type ProfileHandler struct {
@@ -24,6 +25,8 @@ func (h *ProfileHandler) Handle(c *gin.Context) {
 		common.HandleError(c, domain.ErrUnauthorized)
 		return
 	}
+
+	zap.L().Debug("Get profile request", zap.Int("user_id", userID))
 
 	input := userprofile.Input{UserID: userID}
 	output, err := h.usecase.Execute(c.Request.Context(), input)

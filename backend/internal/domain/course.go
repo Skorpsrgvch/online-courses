@@ -1,49 +1,49 @@
 package domain
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 type Course struct {
-	ID                int
-	Title             string
-	Description       string
-	IsPublic          bool
-	Price             int
-	AuthorID          int
-	IsActive          bool
-	CoverImageURL     string
-	Contraindications string      `json:"contraindications"` // Противопоказания
+	ID                int         `json:"id"`
+	Title             string      `json:"title"`
+	Description       string      `json:"description"`
+	IsPublic          bool        `json:"is_public"`
+	Price             int         `json:"price"`
+	AuthorID          int         `json:"author_id"`
+	IsActive          bool        `json:"is_active"`
+	CoverImageURL     string      `json:"cover_image_url"`
+	Contraindications string      `json:"contraindications"`
 	Recommendations   string      `json:"recommendations"`
 	TargetAudience    string      `json:"target_audience"`
 	CourseBasis       string      `json:"course_basis"`
 	ClassBasis        string      `json:"class_basis"`
-	Bonuses           []BonusItem `json:"bonuses"` // Бонусы
+	Bonuses           []BonusItem `json:"bonuses"`
 	IsPurchased       bool        `json:"is_purchased,omitempty"`
+	ProgressPercent   int         `json:"progress_percent"`
+	CreatedAt         time.Time   `json:"created_at"`
 }
 
 type BonusItem struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
-	Icon        string `json:"icon"` // например: "gift", "book", "video"
+	Icon        string `json:"icon"`
 }
 
-// NewCourse создает новый курс с валидацией
 func NewCourse(
 	title, description string,
 	isPublic bool,
 	price int,
 	authorID int,
 	coverImageURL string,
-	contraindications string,
-	recommendations string,
-	targetAudience string,
-	courseBasis string,
-	classBasis string,
+	contraindications, recommendations, targetAudience, courseBasis, classBasis string,
 ) (*Course, error) {
 	if title == "" {
-		return nil, fmt.Errorf("title is required")
+		return nil, fmt.Errorf("title is required: %w", ErrInvalidInput)
 	}
 	if price < 0 {
-		return nil, fmt.Errorf("price cannot be negative")
+		return nil, fmt.Errorf("price cannot be negative: %w", ErrInvalidInput)
 	}
 
 	return &Course{
@@ -59,14 +59,16 @@ func NewCourse(
 		TargetAudience:    targetAudience,
 		CourseBasis:       courseBasis,
 		ClassBasis:        classBasis,
-		Bonuses:           []BonusItem{},
+		Bonuses:           make([]BonusItem, 0),
+		CreatedAt:         time.Now().UTC(),
 	}, nil
 }
 
-// RestoreCourse используется для восстановления объекта из базы данных
 func RestoreCourse(
-	id int, title, description string, isPublic bool, price int, authorID int, isActive bool,
-	coverImageURL, contraindications, recommendations, targetAudience, courseBasis, classBasis string,
+	id, authorID int, title, description string, isPublic bool, price int, isActive bool,
+	coverImageURL string, createdAt time.Time,
+	contraindications, recommendations, targetAudience, courseBasis, classBasis string,
+	bonuses []BonusItem,
 ) *Course {
 	return &Course{
 		ID:                id,
@@ -82,6 +84,7 @@ func RestoreCourse(
 		TargetAudience:    targetAudience,
 		CourseBasis:       courseBasis,
 		ClassBasis:        classBasis,
-		Bonuses:           []BonusItem{},
+		Bonuses:           bonuses,
+		CreatedAt:         createdAt,
 	}
 }

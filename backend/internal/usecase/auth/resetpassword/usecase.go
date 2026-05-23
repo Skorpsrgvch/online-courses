@@ -6,11 +6,12 @@ import (
 	"time"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type Input struct {
-	Code        string // Теперь это 6-значный код
+	Code        string
 	NewPassword string
 }
 
@@ -38,43 +39,56 @@ func NewUsecase(codeChecker CodeChecker, passwordUpdater PasswordUpdater) (*Usec
 	if codeChecker == nil || passwordUpdater == nil {
 		return nil, errors.New("dependencies are required")
 	}
-	return &Usecase{codeChecker: codeChecker, passwordUpdater: passwordUpdater}, nil
+	return &Usecase{
+		codeChecker:     codeChecker,
+		passwordUpdater: passwordUpdater,
+	}, nil
 }
 
 func (u *Usecase) Execute(ctx context.Context, input Input) error {
+	zap.L().Debug("Password reset attempt", zap.Int("code_len", len(input.Code)))
+
 	if input.Code == "" || input.NewPassword == "" {
 		return domain.ErrInvalidCredentials
 	}
 
 	if len(input.NewPassword) < 6 {
+		zap.L().Warn("Password too short")
 		return errors.New("пароль должен быть не менее 6 символов")
 	}
 
-	// Проверяем код
 	tokenData, err := u.codeChecker.GetByCode(ctx, input.Code)
 	if err != nil {
+		zap.L().Warn("Invalid reset code", zap.Error(err))
 		return domain.ErrInvalidCredentials
 	}
 
 	if tokenData.Used {
+		zap.L().Warn("Reset code already used", zap.Int("user_id", tokenData.UserID))
 		return errors.New("код уже был использован")
 	}
 
 	if time.Now().UTC().After(tokenData.ExpiresAt) {
+		zap.L().Warn("Reset code expired", zap.Int("user_id", tokenData.UserID))
 		return errors.New("срок действия кода истек")
 	}
 
-	// Хешируем новый пароль
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
+		zap.L().Error("Password hashing failed", zap.Error(err))
 		return errors.New("ошибка хеширования пароля")
 	}
 
-	// Обновляем пароль
 	if err := u.passwordUpdater.UpdatePassword(ctx, tokenData.UserID, string(passwordHash)); err != nil {
+		zap.L().Error("Password update failed", zap.Error(err), zap.Int("user_id", tokenData.UserID))
 		return err
 	}
 
-	// Помечаем код как использованный
-	return u.codeChecker.MarkTokenUsed(ctx, input.Code)
+	if err := u.codeChecker.MarkTokenUsed(ctx, input.Code); err != nil {
+		zap.L().Error("Failed to mark code as used", zap.Error(err))
+		return err
+	}
+
+	zap.L().Info("Password reset successful", zap.Int("user_id", tokenData.UserID))
+	return nil
 }

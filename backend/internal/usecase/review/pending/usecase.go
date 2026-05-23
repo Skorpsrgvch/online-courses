@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
+	"go.uber.org/zap"
 )
 
 type Input struct{}
@@ -26,12 +27,12 @@ type Output struct {
 	Reviews []ReviewDTO `json:"reviews"`
 }
 
-type ReviewReader interface {
-	GetPendingReviews(ctx context.Context) ([]*domain.Review, error)
-}
-
 type Usecase struct {
 	reviewReader ReviewReader
+}
+
+type ReviewReader interface {
+	GetPendingReviews(ctx context.Context) ([]*domain.Review, error)
 }
 
 func NewUsecase(reviewReader ReviewReader) (*Usecase, error) {
@@ -42,8 +43,11 @@ func NewUsecase(reviewReader ReviewReader) (*Usecase, error) {
 }
 
 func (u *Usecase) Execute(ctx context.Context, _ Input) (*Output, error) {
+	zap.L().Debug("GetPendingReviews started")
+
 	reviews, err := u.reviewReader.GetPendingReviews(ctx)
 	if err != nil {
+		zap.L().Error("Failed to get pending reviews", zap.Error(err))
 		return nil, err
 	}
 
@@ -62,5 +66,6 @@ func (u *Usecase) Execute(ctx context.Context, _ Input) (*Output, error) {
 		})
 	}
 
+	zap.L().Info("Pending reviews retrieved", zap.Int("count", len(dtos)))
 	return &Output{Reviews: dtos}, nil
 }

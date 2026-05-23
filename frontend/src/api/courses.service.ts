@@ -9,7 +9,7 @@ import type {
   FullCourseModule,
   FullCourseLesson,
   CreateLessonDto,
-  UpdateFullCourseDto, 
+  UpdateFullCourseDto,
   PaymentResponse
 } from './types';
 
@@ -17,14 +17,14 @@ import type {
 
 const mapCourse = (data: any): Course => {
   return {
-    id: data.ID,
-    title: data.Title,
-    description: data.Description,
-    is_public: data.IsPublic,
-    price: data.Price,
-    author_id: data.AuthorID,
-    is_active: data.IsActive,
-    cover_image_url: data.CoverImageURL || '',
+    id: data.id,
+    title: data.title,
+    description: data.description,
+    is_public: data.is_public,
+    price: data.price,
+    author_id: data.author_id,
+    is_active: data.is_active,
+    cover_image_url: data.cover_image_url || '',
     contraindications: data.contraindications || '',
     recommendations: data.recommendations || '',
     target_audience: data.target_audience || '',
@@ -33,7 +33,7 @@ const mapCourse = (data: any): Course => {
     bonuses: data.bonuses || [],
 
     is_purchased: data.is_purchased || false,
-    progress: data.progress || 0,
+    progress_percent: data.progress_percent || 0,
     modules: data.modules || [],
   };
 };
@@ -60,9 +60,24 @@ const mapModule = (data: any): FullCourseModule => ({
 
 export const coursesService = {
 
+
   getAllCourses: async (): Promise<Course[]> => {
-    const response = await apiClient.get<any[]>('/courses');
-    return response.data.map(mapCourse);
+    try {
+      console.log('[API] Запрос списка курсов...');
+      const response = await apiClient.get<any[]>('/courses');
+      
+      console.log('[API] Сырой ответ:', response.data);
+      
+      const courses = response.data.map(mapCourse);
+      
+      console.log('[API] Обработанные курсы:', courses);
+      console.log('[API] Количество активных курсов:', courses.filter(c => c.is_active).length);
+      
+      return courses;
+    } catch (error) {
+      console.error('[API] Ошибка получения курсов:', error);
+      throw error;
+    }
   },
 
   getAllCoursesAdmin: async (): Promise<Course[]> => {
@@ -182,4 +197,15 @@ export const coursesService = {
     });
     return response.data;
   },
+
+  enrollFree: async (courseId: number, price: number): Promise<void> => {
+  console.log('[API] Отправка запроса на зачисление:', { courseId, price });
+  
+  // Важно: передаем вторым аргументом объект с данными
+  const response = await apiClient.post(`/courses/${courseId}/enroll-free`, {
+    price: price 
+  });
+  
+  return response.data;
+},
 };

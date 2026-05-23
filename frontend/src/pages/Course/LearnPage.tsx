@@ -40,7 +40,6 @@ const LearnPage = () => {
         });
         setCompletedLessonsIds(completedIdsFromBackend);
 
-        // ЛОГИКА АВТОМАТИЧЕСКОГО ВЫБОРА УРОКА
         if (data.modules && data.modules.length > 0) {
           let nextModuleIdx = 0;
           let nextLessonIdx = 0;
@@ -64,11 +63,8 @@ const LearnPage = () => {
             }
           }
 
-          // Если все уроки пройдены, остаемся на первом уроке (для повторения)
-          // Если нашли непройденный - выбираем его
           setSelectedLesson({ moduleIdx: nextModuleIdx, lessonIdx: nextLessonIdx });
 
-          // Раскрываем модуль, в котором находится выбранный урок
           setExpandedModules(prev => {
             const next = new Set(prev);
             next.add(nextModuleIdx);
@@ -107,7 +103,6 @@ const LearnPage = () => {
   const getRuTubeUrl = (lesson: FullCourseLesson) => {
     if (!lesson.video_embed_id) return '';
 
-    // ВНИМАНИЕ: Убран пробел после embed/
     const base = `https://rutube.ru/video/embed/${lesson.video_embed_id}/`;
 
     if (lesson.private_key) {

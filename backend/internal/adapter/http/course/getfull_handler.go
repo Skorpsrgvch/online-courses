@@ -1,20 +1,20 @@
 package course
 
 import (
-	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
-	"github.com/Skorpsrgvch/online-courses/internal/usecase/course/getfull"
+	getFullUC "github.com/Skorpsrgvch/online-courses/internal/usecase/course/getfull"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type GetFullHandler struct {
-	usecase *getfull.Usecase
+	usecase *getFullUC.Usecase
 }
 
-func NewGetFullHandler(usecase *getfull.Usecase) *GetFullHandler {
+func NewGetFullHandler(usecase *getFullUC.Usecase) *GetFullHandler {
 	return &GetFullHandler{usecase: usecase}
 }
 
@@ -22,22 +22,16 @@ func (h *GetFullHandler) Handle(c *gin.Context) {
 	idStr := c.Param("id")
 	courseID, err := strconv.Atoi(idStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный ID курса"})
+		common.HandleError(c, common.HttpError("Неверный ID курса", http.StatusBadRequest))
 		return
 	}
 
 	userID := 0
 	role := ""
 
-	userIDRaw, exists := c.Get("user_id") // Попробуйте жестко задать строку ключа
-	if !exists {
-		log.Println("Key 'user_id' not found in context")
-	} else {
-		log.Printf("Raw value for user_id: %v (type: %T)", userIDRaw, userIDRaw)
-		if id, ok := userIDRaw.(int); ok {
+	if uidRaw, exists := c.Get("user_id"); exists {
+		if id, ok := uidRaw.(int); ok {
 			userID = id
-		} else {
-			log.Println("Type assertion failed for user_id")
 		}
 	}
 
@@ -46,9 +40,10 @@ func (h *GetFullHandler) Handle(c *gin.Context) {
 			role = roleVal
 		}
 	}
-	log.Printf("[DEBUG] GetFullHandler: UserID from context = %v, Role = %v", userID, role)
 
-	input := getfull.Input{
+	zap.L().Debug("Get full course request", zap.Int("courseID", courseID), zap.Int("userID", userID), zap.String("role", role))
+
+	input := getFullUC.Input{
 		CourseID: courseID,
 		UserID:   userID,
 		Role:     role,
@@ -56,6 +51,7 @@ func (h *GetFullHandler) Handle(c *gin.Context) {
 
 	output, err := h.usecase.Execute(c.Request.Context(), input)
 	if err != nil {
+		zap.L().Error("Get full course failed", zap.Int("courseID", courseID), zap.Error(err))
 		common.HandleError(c, err)
 		return
 	}
@@ -64,5 +60,6 @@ func (h *GetFullHandler) Handle(c *gin.Context) {
 		output.Course.IsPurchased = output.IsPurchased
 	}
 
+	zap.L().Info("Get full course successful", zap.Int("courseID", courseID), zap.Bool("isPurchased", output.IsPurchased))
 	c.JSON(http.StatusOK, output)
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
+	"go.uber.org/zap"
 )
 
 type Input struct {
@@ -20,7 +21,6 @@ type Output struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// Интерфейс должен использовать GetUserByID
 type UserReader interface {
 	GetUserByID(ctx context.Context, id int) (*domain.User, error)
 }
@@ -37,15 +37,23 @@ func NewUsecase(userReader UserReader) (*Usecase, error) {
 }
 
 func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
+	zap.L().Debug("GetUserProfile started", zap.Int("userID", input.UserID))
+
 	if input.UserID <= 0 {
 		return nil, errors.New("некорректный ID пользователя")
 	}
 
 	user, err := u.userReader.GetUserByID(ctx, input.UserID)
 	if err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) {
+			zap.L().Warn("User not found", zap.Int("userID", input.UserID))
+		} else {
+			zap.L().Error("Failed to get user by ID", zap.Int("userID", input.UserID), zap.Error(err))
+		}
 		return nil, err
 	}
 
+	zap.L().Info("User profile retrieved", zap.Int("userID", input.UserID), zap.String("email", user.Email))
 	return &Output{
 		ID:        user.ID,
 		Email:     user.Email,

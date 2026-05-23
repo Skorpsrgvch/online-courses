@@ -2,6 +2,7 @@ import React from 'react';
 
 
 
+
 export const AboutSection: React.FC = () => {
   return (
     <section id="about" className="py-10 md:py-14 lg:py-16 relative overflow-hidden">
@@ -59,7 +60,7 @@ export const AboutSection: React.FC = () => {
             {/* Кнопка */}
             <div className="flex justify-center ">
               <a 
-                href="#courses" 
+                href="/courses" 
                 className="inline-flex items-center gap-2 px-8 py-3 bg-white border-2 border-rose-300 text-rose-600! font-semibold rounded-2xl hover:border-rose-500! hover:bg-rose-50 hover:-translate-y-1 hover:shadow-lg hover:shadow-rose-100/50 transition-all duration-300 group"
                 style={{ textDecoration: 'none' }}
               >

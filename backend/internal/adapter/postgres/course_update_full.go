@@ -8,6 +8,7 @@ import (
 
 	"github.com/Skorpsrgvch/online-courses/internal/usecase/course/updatefullcourse"
 	"github.com/lib/pq"
+	"go.uber.org/zap"
 )
 
 type CourseFullRepo struct {
@@ -18,128 +19,142 @@ func NewCourseFullRepo(db *sql.DB) *CourseFullRepo {
 	return &CourseFullRepo{db: db}
 }
 
-// UpdateFullWithModules выполняет полное обновление курса, модулей и уроков в транзакции
 func (r *CourseFullRepo) UpdateFullWithModules(ctx context.Context, input updatefullcourse.Input) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		zap.L().Error("Failed to begin transaction for full course update", zap.Int("courseID", input.CourseID), zap.Error(err))
+		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback()
+			panic(p)
+		}
+	}()
 
-	// 1. Обновляем сам курс
 	bonusesJSON, err := json.Marshal(input.Bonuses)
 	if err != nil {
-		return err
+		_ = tx.Rollback()
+		return fmt.Errorf("marshal bonuses: %w", err)
 	}
 
 	_, err = tx.ExecContext(ctx, `
 		UPDATE courses SET 
-			title = $1, 
-			description = $2,
-			is_public = $3,
-			price = $4,
-			is_active = $5,
-			cover_image_url = NULLIF($6, ''),
-			contraindications = $7,
-			recommendations = $8,
-			target_audience = $9,
-			course_basis = $10,
-			class_basis = $11,
-			bonuses = $12
+			title = $1, description = $2, is_public = $3, price = $4, is_active = $5,
+			cover_image_url = NULLIF($6, ''), contraindications = $7, recommendations = $8,
+			target_audience = $9, course_basis = $10, class_basis = $11, bonuses = $12
 		WHERE id = $13`,
-		input.Title,
-		input.Description,
-		input.IsPublic,
-		input.Price,
-		input.IsActive,
-		input.CoverImageURL,
-		input.Contraindications,
-		input.Recommendations,
-		input.TargetAudience,
-		input.CourseBasis,
-		input.ClassBasis,
-		bonusesJSON,
-		input.CourseID,
+		input.Title, input.Description, input.IsPublic, input.Price, input.IsActive,
+		input.CoverImageURL, input.Contraindications, input.Recommendations,
+		input.TargetAudience, input.CourseBasis, input.ClassBasis, bonusesJSON, input.CourseID,
 	)
 	if err != nil {
-		return err
+		_ = tx.Rollback()
+		zap.L().Error("Failed to update course details", zap.Int("courseID", input.CourseID), zap.Error(err))
+		return fmt.Errorf("update course: %w", err)
 	}
 
-	// 2. Получаем текущие модули для выявления удаленных
 	rows, err := tx.QueryContext(ctx, `SELECT id FROM modules WHERE course_id = $1`, input.CourseID)
 	if err != nil {
-		return err
+		_ = tx.Rollback()
+		return fmt.Errorf("query existing modules: %w", err)
 	}
 	existingModuleIDs := make(map[int]bool)
 	var dbModID int
 	for rows.Next() {
 		if err := rows.Scan(&dbModID); err != nil {
 			rows.Close()
-			return err
+			_ = tx.Rollback()
+			return fmt.Errorf("scan module: %w", err)
 		}
 		existingModuleIDs[dbModID] = true
 	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		_ = tx.Rollback()
+		return err
+	}
 	rows.Close()
 
-	// 3. Обрабатываем модули из запроса
 	for _, mod := range input.Modules {
-		var modID int
+		select {
+		case <-ctx.Done():
+			_ = tx.Rollback()
+			return ctx.Err()
+		default:
+		}
 
+		var modID int
 		if mod.ID == 0 {
-			// Создаем новый модуль
 			err = tx.QueryRowContext(ctx, `
 				INSERT INTO modules (course_id, title, "order") VALUES ($1, $2, $3) RETURNING id`,
 				input.CourseID, mod.Title, mod.Order).Scan(&modID)
 			if err != nil {
-				return err
+				_ = tx.Rollback()
+				return fmt.Errorf("insert module: %w", err)
 			}
 		} else {
-			// Обновляем существующий
 			modID = mod.ID
 			_, err = tx.ExecContext(ctx, `
 				UPDATE modules SET title = $1, "order" = $2 WHERE id = $3`,
 				mod.Title, mod.Order, modID)
 			if err != nil {
-				return err
+				_ = tx.Rollback()
+				return fmt.Errorf("update module: %w", err)
 			}
-			// Помечаем как обработанный
 			delete(existingModuleIDs, modID)
 		}
 
-		// 4. Синхронизируем уроки
 		if err := r.syncLessons(ctx, tx, modID, mod.Lessons); err != nil {
-			return err
+			_ = tx.Rollback()
+			return fmt.Errorf("sync lessons for module %d: %w", modID, err)
 		}
 	}
 
-	// 5. Удаляем лишние модули (каскад удалит уроки)
 	for id := range existingModuleIDs {
 		if _, err := tx.ExecContext(ctx, `DELETE FROM modules WHERE id = $1`, id); err != nil {
-			return err
+			_ = tx.Rollback()
+			zap.L().Error("Failed to delete orphan module", zap.Int("moduleID", id), zap.Error(err))
+			return fmt.Errorf("delete module: %w", err)
 		}
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		zap.L().Error("Failed to commit transaction", zap.Int("courseID", input.CourseID), zap.Error(err))
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+
+	zap.L().Info("Course fully updated with modules and lessons", zap.Int("courseID", input.CourseID))
+	return nil
 }
 
 func (r *CourseFullRepo) syncLessons(ctx context.Context, tx *sql.Tx, moduleID int, lessons []updatefullcourse.LessonInput) error {
 	rows, err := tx.QueryContext(ctx, `SELECT id FROM lessons WHERE module_id = $1`, moduleID)
 	if err != nil {
-		return err
+		return fmt.Errorf("query existing lessons: %w", err)
 	}
 	existingLessonIDs := make(map[int]bool)
 	var dbLessID int
 	for rows.Next() {
 		if err := rows.Scan(&dbLessID); err != nil {
 			rows.Close()
-			return err
+			return fmt.Errorf("scan lesson: %w", err)
 		}
 		existingLessonIDs[dbLessID] = true
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
 	}
 	rows.Close()
 
 	for _, less := range lessons {
-		var lessID int
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		var pkVal interface{}
 		if less.PrivateKey != nil {
 			pkVal = *less.PrivateKey
@@ -149,31 +164,26 @@ func (r *CourseFullRepo) syncLessons(ctx context.Context, tx *sql.Tx, moduleID i
 			err = tx.QueryRowContext(ctx, `
 				INSERT INTO lessons (module_id, title, description, video_embed_id, private_key, "order") 
 				VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-				moduleID, less.Title, less.Description, less.VideoEmbedID, pkVal, less.Order).Scan(&lessID)
+				moduleID, less.Title, less.Description, less.VideoEmbedID, pkVal, less.Order).Scan(&less.ID)
 			if err != nil {
-				return err
+				return fmt.Errorf("insert lesson: %w", err)
 			}
 		} else {
-			lessID = less.ID
 			_, err = tx.ExecContext(ctx, `
 				UPDATE lessons SET 
-					title = $1, 
-					description = $2, 
-					video_embed_id = $3, 
-					private_key = $4, 
-					"order" = $5 
+					title = $1, description = $2, video_embed_id = $3, private_key = $4, "order" = $5 
 				WHERE id = $6`,
-				less.Title, less.Description, less.VideoEmbedID, pkVal, less.Order, lessID)
+				less.Title, less.Description, less.VideoEmbedID, pkVal, less.Order, less.ID)
 			if err != nil {
-				return err
+				return fmt.Errorf("update lesson: %w", err)
 			}
-			delete(existingLessonIDs, lessID)
+			delete(existingLessonIDs, less.ID)
 		}
 	}
 
 	for id := range existingLessonIDs {
 		if _, err := tx.ExecContext(ctx, `DELETE FROM lessons WHERE id = $1`, id); err != nil {
-			return err
+			return fmt.Errorf("delete lesson: %w", err)
 		}
 	}
 
@@ -185,18 +195,13 @@ func (r *CourseFullRepo) ReorderModules(ctx context.Context, courseID int, order
 		return nil
 	}
 
-	// Формируем SQL: UPDATE modules SET "order" = CASE id WHEN $1 THEN $2 WHEN $3 THEN $4 ... END WHERE id IN (...)
 	var ids []int
 	var args []interface{}
-	argIndex := 1
-
 	for id, order := range orderMap {
 		ids = append(ids, id)
 		args = append(args, id, order)
-		argIndex += 2
 	}
 
-	// Создаем строку условий CASE
 	caseStmt := "CASE id "
 	for i := 0; i < len(ids); i++ {
 		caseStmt += fmt.Sprintf("WHEN $%d THEN $%d ", i*2+1, i*2+2)
@@ -204,18 +209,20 @@ func (r *CourseFullRepo) ReorderModules(ctx context.Context, courseID int, order
 	caseStmt += "END"
 
 	query := fmt.Sprintf(`UPDATE modules SET "order" = %s WHERE course_id = $%d AND id = ANY($%d::int[])`,
-		caseStmt,
-		len(args)+1,
-		len(args)+2,
-	)
+		caseStmt, len(args)+1, len(args)+2)
 
 	args = append(args, courseID, pq.Array(ids))
 
 	_, err := r.db.ExecContext(ctx, query, args...)
-	return err
+	if err != nil {
+		zap.L().Error("Failed to reorder modules", zap.Int("courseID", courseID), zap.Error(err))
+		return fmt.Errorf("reorder modules: %w", err)
+	}
+
+	zap.L().Debug("Modules reordered", zap.Int("courseID", courseID), zap.Int("count", len(orderMap)))
+	return nil
 }
 
-// ReorderLessons обновляет порядок уроков внутри конкретного модуля
 func (r *CourseFullRepo) ReorderLessons(ctx context.Context, moduleID int, orderMap map[int]int) error {
 	if len(orderMap) == 0 {
 		return nil
@@ -223,7 +230,6 @@ func (r *CourseFullRepo) ReorderLessons(ctx context.Context, moduleID int, order
 
 	var ids []int
 	var args []interface{}
-
 	for id, order := range orderMap {
 		ids = append(ids, id)
 		args = append(args, id, order)
@@ -236,13 +242,16 @@ func (r *CourseFullRepo) ReorderLessons(ctx context.Context, moduleID int, order
 	caseStmt += "END"
 
 	query := fmt.Sprintf(`UPDATE lessons SET "order" = %s WHERE module_id = $%d AND id = ANY($%d::int[])`,
-		caseStmt,
-		len(args)+1,
-		len(args)+2,
-	)
+		caseStmt, len(args)+1, len(args)+2)
 
 	args = append(args, moduleID, pq.Array(ids))
 
 	_, err := r.db.ExecContext(ctx, query, args...)
-	return err
+	if err != nil {
+		zap.L().Error("Failed to reorder lessons", zap.Int("moduleID", moduleID), zap.Error(err))
+		return fmt.Errorf("reorder lessons: %w", err)
+	}
+
+	zap.L().Debug("Lessons reordered", zap.Int("moduleID", moduleID), zap.Int("count", len(orderMap)))
+	return nil
 }

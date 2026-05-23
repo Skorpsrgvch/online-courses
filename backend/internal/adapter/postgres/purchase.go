@@ -3,8 +3,10 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
+	"go.uber.org/zap"
 )
 
 type PurchaseRepo struct {
@@ -31,7 +33,12 @@ func (r *PurchaseRepo) Create(ctx context.Context, userID, courseID int, payment
 		"INSERT INTO user_purchases (user_id, course_id) VALUES ($1, $2)",
 		userID, courseID,
 	)
-	return err
+	if err != nil {
+		zap.L().Error("Failed to create purchase", zap.Int("user_id", userID), zap.Int("course_id", courseID), zap.Error(err))
+		return err
+	}
+	zap.L().Info("Purchase created", zap.Int("user_id", userID), zap.Int("course_id", courseID))
+	return nil
 }
 
 // GetUserCourseIDs возвращает список ID курсов
@@ -53,13 +60,16 @@ func (r *PurchaseRepo) GetUserCourseIDs(ctx context.Context, userID int) ([]int,
 		}
 		courseIDs = append(courseIDs, cid)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return courseIDs, nil
 }
 
 // GetByUser возвращает полный список покупок с данными курсов
 func (r *PurchaseRepo) GetByUser(ctx context.Context, userID int) ([]domain.CourseWithDate, error) {
-	// Явно указываем поля courses, которые нам нужны.
-	// Если description нет в таблице courses, уберите его из запроса.
 	query := `
 		SELECT c.id, c.title, COALESCE(c.description, ''), c.price, COALESCE(c.cover_image_url, ''), up.purchased_at
 		FROM user_purchases up
@@ -77,14 +87,16 @@ func (r *PurchaseRepo) GetByUser(ctx context.Context, userID int) ([]domain.Cour
 
 	for rows.Next() {
 		var p domain.CourseWithDate
-		// Порядок полей должен строго соответствовать порядку в SELECT
 		if err := rows.Scan(&p.ID, &p.Title, &p.Description, &p.Price, &p.CoverImageURL, &p.PurchasedAt); err != nil {
 			return nil, err
 		}
 		purchases = append(purchases, p)
 	}
 
-	// Возвращаем пустой слайс вместо nil, если ничего не найдено (лучше для JSON)
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	if purchases == nil {
 		return []domain.CourseWithDate{}, nil
 	}
@@ -92,6 +104,7 @@ func (r *PurchaseRepo) GetByUser(ctx context.Context, userID int) ([]domain.Cour
 	return purchases, nil
 }
 
+// GrantAccess предоставляет доступ к курсу (идемпотентно)
 func (r *PurchaseRepo) GrantAccess(ctx context.Context, userID, courseID int) error {
 	_, err := r.db.ExecContext(ctx, `
         INSERT INTO user_purchases (user_id, course_id) 
@@ -99,4 +112,41 @@ func (r *PurchaseRepo) GrantAccess(ctx context.Context, userID, courseID int) er
         ON CONFLICT (user_id, course_id) DO NOTHING
     `, userID, courseID)
 	return err
+}
+
+// EnrollFree записывает пользователя на бесплатный курс
+func (r *PurchaseRepo) EnrollFree(ctx context.Context, userID, courseID int, coursePrice int) error {
+	zap.L().Debug("EnrollFree started", zap.Int("user_id", userID), zap.Int("course_id", courseID), zap.Int("price", coursePrice))
+
+	if coursePrice > 0 {
+		err := errors.New("cannot enroll free for a paid course")
+		zap.L().Warn("EnrollFree validation failed", zap.Int("course_id", courseID), zap.Int("price", coursePrice))
+		return err
+	}
+
+	query := `
+        INSERT INTO user_purchases (user_id, course_id, purchased_at) 
+        VALUES ($1, $2, NOW())
+        ON CONFLICT (user_id, course_id) DO NOTHING
+    `
+
+	res, err := r.db.ExecContext(ctx, query, userID, courseID)
+	if err != nil {
+		zap.L().Error("EnrollFree DB execution failed", zap.Error(err))
+		return err
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		zap.L().Warn("EnrollFree failed to get rows affected", zap.Error(err))
+		return err
+	}
+
+	if rowsAffected == 0 {
+		zap.L().Info("EnrollFree: no rows inserted (likely duplicate)", zap.Int("user_id", userID), zap.Int("course_id", courseID))
+	} else {
+		zap.L().Info("EnrollFree: successfully enrolled", zap.Int("user_id", userID), zap.Int("course_id", courseID))
+	}
+
+	return nil
 }

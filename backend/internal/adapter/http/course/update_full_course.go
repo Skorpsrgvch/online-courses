@@ -7,9 +7,17 @@ import (
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/middleware"
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
-	updatefullcourse "github.com/Skorpsrgvch/online-courses/internal/usecase/course/updatefullcourse"
+	updateFullUC "github.com/Skorpsrgvch/online-courses/internal/usecase/course/updatefullcourse"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
+
+type updateModuleRequest struct {
+	ID      int                   `json:"id"`
+	Title   string                `json:"title" binding:"required"`
+	Order   int                   `json:"order"`
+	Lessons []updateLessonRequest `json:"lessons"`
+}
 
 type updateLessonRequest struct {
 	ID           int     `json:"id"`
@@ -18,13 +26,6 @@ type updateLessonRequest struct {
 	VideoEmbedID string  `json:"video_embed_id"`
 	PrivateKey   *string `json:"private_key"`
 	Order        int     `json:"order"`
-}
-
-type updateModuleRequest struct {
-	ID      int                   `json:"id"`
-	Title   string                `json:"title" binding:"required"`
-	Order   int                   `json:"order"`
-	Lessons []updateLessonRequest `json:"lessons"`
 }
 
 type updateFullCourseRequest struct {
@@ -44,17 +45,20 @@ type updateFullCourseRequest struct {
 }
 
 type UpdateFullCourseHandler struct {
-	usecase *updatefullcourse.Usecase
+	usecase *updateFullUC.Usecase
 }
 
-func NewUpdateFullCourseHandler(usecase *updatefullcourse.Usecase) *UpdateFullCourseHandler {
+func NewUpdateFullCourseHandler(usecase *updateFullUC.Usecase) *UpdateFullCourseHandler {
 	return &UpdateFullCourseHandler{usecase: usecase}
 }
 
 func (h *UpdateFullCourseHandler) Handle(c *gin.Context) {
-	// 1. Получаем ID курса из URL параметра
-	idStr := c.Param("id")
-	courseID, err := strconv.Atoi(idStr)
+	if !middleware.RequireAdmin(c) {
+		common.HandleError(c, domain.ErrAccessDenied)
+		return
+	}
+
+	courseID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		common.HandleError(c, domain.ErrInvalidID)
 		return
@@ -66,19 +70,14 @@ func (h *UpdateFullCourseHandler) Handle(c *gin.Context) {
 		return
 	}
 
-	if !middleware.RequireAdmin(c) {
-		common.HandleError(c, domain.ErrAccessDenied)
-		return
-	}
-
 	userID := middleware.GetUserID(c)
+	zap.L().Info("Update full course request", zap.Int("courseID", courseID), zap.Int("authorID", userID))
 
-	// Конвертируем запрос в формат юзкейса
-	modules := make([]updatefullcourse.ModuleInput, len(req.Modules))
+	modules := make([]updateFullUC.ModuleInput, len(req.Modules))
 	for i, mod := range req.Modules {
-		lessons := make([]updatefullcourse.LessonInput, len(mod.Lessons))
+		lessons := make([]updateFullUC.LessonInput, len(mod.Lessons))
 		for j, l := range mod.Lessons {
-			lessons[j] = updatefullcourse.LessonInput{
+			lessons[j] = updateFullUC.LessonInput{
 				ID:           l.ID,
 				Title:        l.Title,
 				Description:  l.Description,
@@ -87,7 +86,7 @@ func (h *UpdateFullCourseHandler) Handle(c *gin.Context) {
 				Order:        l.Order,
 			}
 		}
-		modules[i] = updatefullcourse.ModuleInput{
+		modules[i] = updateFullUC.ModuleInput{
 			ID:      mod.ID,
 			Title:   mod.Title,
 			Order:   mod.Order,
@@ -95,7 +94,7 @@ func (h *UpdateFullCourseHandler) Handle(c *gin.Context) {
 		}
 	}
 
-	input := updatefullcourse.Input{
+	input := updateFullUC.Input{
 		CourseID:          courseID,
 		Title:             req.Title,
 		Description:       req.Description,
@@ -114,9 +113,11 @@ func (h *UpdateFullCourseHandler) Handle(c *gin.Context) {
 	}
 
 	if err := h.usecase.Execute(c.Request.Context(), input); err != nil {
+		zap.L().Error("Update full course failed", zap.Int("courseID", courseID), zap.Error(err))
 		common.HandleError(c, err)
 		return
 	}
 
+	zap.L().Info("Full course updated successfully", zap.Int("courseID", courseID))
 	c.Status(http.StatusOK)
 }

@@ -17,6 +17,7 @@ export interface CourseModule {
   course_id: number;
   title: string;
   order: number;
+  week_number?: number; 
 }
 
 export interface Lesson {
@@ -47,6 +48,10 @@ export interface Course {
   modules?: LessonGroup[];
   is_purchased?: boolean;
   progress_percent?: number;
+
+  is_access_expired?: boolean;      
+  access_expires_at?: string; 
+  days_remaining?: number;  
 }
 
 export interface LessonGroup {
@@ -150,6 +155,9 @@ export interface FullCourseModule {
   course_id: number;
   title: string;
   order: number;
+  week_number?: number; 
+  is_locked: boolean;  
+  unlock_date?: string | null; 
   lessons: FullCourseLesson[];
 }
 
@@ -158,6 +166,9 @@ export interface CourseFullResponse {
   modules: FullCourseModule[];
   is_purchased?: boolean;
   progress_percent?: number;
+  is_access_expired?: boolean;
+  access_expires_at?: string | null;
+  days_remaining?: number;
 }
 
 export interface UpdateFullCourseDto extends CreateCourseDto {
@@ -207,8 +218,31 @@ export interface Service {
   duration_minutes: number;
 }
 
-interface UserSearchResult {
+export interface StudentStat {
   id: number;
-  email: string;
   name: string;
+  email: string;
+  registered_at: string;
+  total_courses: number;
+  completed_courses: number;
+  total_lessons: number;
+  completed_lessons: number;
+  progress_percent: number;
+  last_activity_at?: string | null;
+}
+
+export interface StudentCourseDetail {
+  course_id: number;
+  course_title: string;
+  purchased_at: string;
+  total_lessons: number;
+  completed_lessons: number;
+  progress_percent: number;
+  last_lesson_title?: string;
+  last_activity_at?: string | null;
+}
+
+export interface StudentDetailsResponse {
+  student: StudentStat;
+  courses: StudentCourseDetail[];
 }

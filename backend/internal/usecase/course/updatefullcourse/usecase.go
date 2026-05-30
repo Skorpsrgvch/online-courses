@@ -36,10 +36,11 @@ type LessonInput struct {
 }
 
 type ModuleInput struct {
-	ID      int
-	Title   string
-	Order   int
-	Lessons []LessonInput
+	ID         int
+	Title      string
+	Order      int
+	WeekNumber int
+	Lessons    []LessonInput
 }
 
 type CourseRepository interface {

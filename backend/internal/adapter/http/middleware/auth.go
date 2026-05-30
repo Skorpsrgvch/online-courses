@@ -143,6 +143,41 @@ func RequireAuth() gin.HandlerFunc {
 }
 
 // RequireAdmin проверяет роль администратора. Возвращает false, если роль не admin.
+func RequireAuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := GetUserID(c)
+		if userID == 0 {
+			zap.L().Debug("Access denied: user not authenticated")
+			c.JSON(401, gin.H{"error": "требуется авторизация"})
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
+
+func RequireAdminMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := GetUserID(c)
+		if userID == 0 {
+			zap.L().Debug("Admin access denied: user not authenticated")
+			c.JSON(401, gin.H{"error": "требуется авторизация"})
+			c.Abort()
+			return
+		}
+
+		role, exists := c.Get(RoleKey)
+		if !exists || role != "admin" {
+			zap.L().Warn("Admin access denied", zap.Any("role", role))
+			c.JSON(403, gin.H{"error": "доступ закрыт"})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
 func RequireAdmin(c *gin.Context) bool {
 	role, exists := c.Get(RoleKey)
 	if !exists {

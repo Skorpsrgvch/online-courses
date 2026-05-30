@@ -2,7 +2,9 @@ package postgres
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
@@ -13,6 +15,11 @@ import (
 
 type ResetTokenRepo struct {
 	db *sql.DB
+}
+
+func hashResetCode(code string) string {
+	hash := sha256.Sum256([]byte(code))
+	return hex.EncodeToString(hash[:])
 }
 
 func NewResetTokenRepo(db *sql.DB) *ResetTokenRepo {
@@ -40,8 +47,8 @@ func (r *ResetTokenRepo) CreateCode(ctx context.Context, userID int, code string
 	}
 
 	// Вставка нового кода
-	queryInsert := `INSERT INTO password_reset_tokens (user_id, token, expires_at, used) VALUES ($1, $2, $3, FALSE)`
-	_, err = r.db.ExecContext(ctx, queryInsert, userID, code, expiresAt)
+	queryInsert := `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, used) VALUES ($1, $2, $3, FALSE)`
+	_, err = r.db.ExecContext(ctx, queryInsert, userID, hashResetCode(code), expiresAt)
 	if err != nil {
 		zap.L().Error("CreateCode: failed to insert new code", zap.Error(err))
 		return fmt.Errorf("failed to insert new code: %w", err)
@@ -56,9 +63,9 @@ func (r *ResetTokenRepo) GetByCode(ctx context.Context, code string) (*resetpass
 	zap.L().Debug("GetByCode called", zap.String("code", code))
 
 	var data resetpassword.TokenData
-	query := `SELECT user_id, expires_at, used FROM password_reset_tokens WHERE token = $1`
+	query := `SELECT user_id, expires_at, used FROM password_reset_tokens WHERE token_hash = $1`
 
-	err := r.db.QueryRowContext(ctx, query, code).Scan(&data.UserID, &data.ExpiresAt, &data.Used)
+	err := r.db.QueryRowContext(ctx, query, hashResetCode(code)).Scan(&data.UserID, &data.ExpiresAt, &data.Used)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -77,8 +84,8 @@ func (r *ResetTokenRepo) GetByCode(ctx context.Context, code string) (*resetpass
 func (r *ResetTokenRepo) MarkTokenUsed(ctx context.Context, code string) error {
 	zap.L().Debug("MarkTokenUsed called", zap.String("code", code))
 
-	query := `UPDATE password_reset_tokens SET used = TRUE WHERE token = $1`
-	res, err := r.db.ExecContext(ctx, query, code)
+	query := `UPDATE password_reset_tokens SET used = TRUE WHERE token_hash = $1`
+	res, err := r.db.ExecContext(ctx, query, hashResetCode(code))
 	if err != nil {
 		zap.L().Error("MarkTokenUsed failed", zap.Error(err))
 		return fmt.Errorf("failed to mark code as used: %w", err)

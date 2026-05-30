@@ -20,7 +20,7 @@ func NewModuleRepo(db *sql.DB) *ModuleRepo {
 
 func (r *ModuleRepo) GetByCourseID(ctx context.Context, courseID int) ([]*domain.Module, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, course_id, title, "order" FROM modules WHERE course_id = $1 ORDER BY "order"`,
+		`SELECT id, course_id, title, "order", COALESCE(week_number, 0) FROM modules WHERE course_id = $1 ORDER BY "order"`,
 		courseID,
 	)
 	if err != nil {
@@ -31,7 +31,8 @@ func (r *ModuleRepo) GetByCourseID(ctx context.Context, courseID int) ([]*domain
 	var modules []*domain.Module
 	for rows.Next() {
 		var m domain.Module
-		if err := rows.Scan(&m.ID, &m.CourseID, &m.Title, &m.Order); err != nil {
+		// Добавлено сканирование week_number
+		if err := rows.Scan(&m.ID, &m.CourseID, &m.Title, &m.Order, &m.WeekNumber); err != nil {
 			return nil, fmt.Errorf("scan module row: %w", err)
 		}
 		modules = append(modules, &m)
@@ -47,12 +48,13 @@ func (r *ModuleRepo) GetByCourseID(ctx context.Context, courseID int) ([]*domain
 
 func (r *ModuleRepo) GetByID(ctx context.Context, id int) (*domain.Module, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, course_id, title, "order" FROM modules WHERE id = $1`,
+		`SELECT id, course_id, title, "order", COALESCE(week_number, 0) FROM modules WHERE id = $1`,
 		id,
 	)
 
 	var m domain.Module
-	err := row.Scan(&m.ID, &m.CourseID, &m.Title, &m.Order)
+	// Добавлено сканирование week_number
+	err := row.Scan(&m.ID, &m.CourseID, &m.Title, &m.Order, &m.WeekNumber)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrModuleNotFound
@@ -65,8 +67,9 @@ func (r *ModuleRepo) GetByID(ctx context.Context, id int) (*domain.Module, error
 }
 
 func (r *ModuleRepo) Save(ctx context.Context, module *domain.Module) error {
-	query := `INSERT INTO modules (course_id, title, "order") VALUES ($1, $2, $3) RETURNING id`
-	err := r.db.QueryRowContext(ctx, query, module.CourseID, module.Title, module.Order).Scan(&module.ID)
+	// Добавлено поле week_number в INSERT
+	query := `INSERT INTO modules (course_id, title, "order", week_number) VALUES ($1, $2, $3, $4) RETURNING id`
+	err := r.db.QueryRowContext(ctx, query, module.CourseID, module.Title, module.Order, module.WeekNumber).Scan(&module.ID)
 	if err != nil {
 		zap.L().Error("Failed to save module", zap.String("title", module.Title), zap.Error(err))
 		return fmt.Errorf("save module: %w", err)
@@ -77,9 +80,10 @@ func (r *ModuleRepo) Save(ctx context.Context, module *domain.Module) error {
 }
 
 func (r *ModuleRepo) Update(ctx context.Context, module *domain.Module) error {
+	// Добавлено поле week_number в UPDATE
 	_, err := r.db.ExecContext(ctx,
-		`UPDATE modules SET title = $1, "order" = $2 WHERE id = $3`,
-		module.Title, module.Order, module.ID,
+		`UPDATE modules SET title = $1, "order" = $2, week_number = $3 WHERE id = $4`,
+		module.Title, module.Order, module.WeekNumber, module.ID,
 	)
 	if err != nil {
 		zap.L().Error("Failed to update module", zap.Int("id", module.ID), zap.Error(err))
@@ -126,7 +130,6 @@ func (r *ModuleRepo) UpdateOrderBatch(ctx context.Context, courseID int, orders 
 }
 
 func (r *ModuleRepo) Delete(ctx context.Context, moduleID int) error {
-	// Каскадное удаление уроков происходит на уровне БД благодаря ON DELETE CASCADE
 	_, err := r.db.ExecContext(ctx, `DELETE FROM modules WHERE id = $1`, moduleID)
 	if err != nil {
 		zap.L().Error("Failed to delete module", zap.Int("id", moduleID), zap.Error(err))

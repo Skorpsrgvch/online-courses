@@ -44,10 +44,9 @@ func (g *Gateway) CreatePayment(amount int, currency string, description string,
 		zap.String("currency", currency),
 		zap.String("description", description))
 
-	amountValue := fmt.Sprintf("%.2f", float64(amount)/100) // Конвертация копеек в рубли, если нужно, или оставить как есть
-	// Примечание: Если amount уже в рублях с копейками (int), форматирование верное.
-	// Если в копейках (int), нужно делить на 100. Оставим логику как в оригинале, но добавим лог.
-	if amount > 10000 { // Эвристика для лога, если сумма большая, возможно это копейки
+	amountValue := fmt.Sprintf("%.2f", float64(amount)/100)
+
+	if amount > 10000 {
 		zap.L().Debug("Amount looks like kopecks, formatting as rubles", zap.Float64("formatted", float64(amount)/100))
 		amountValue = fmt.Sprintf("%.2f", float64(amount))
 	} else {
@@ -140,6 +139,43 @@ func (g *Gateway) CreatePayment(amount int, currency string, description string,
 		ConfirmationURL: yooResp.Confirmation.ConfirmationURL,
 		Description:     yooResp.Description,
 	}, nil
+}
+
+func (g *Gateway) GetPaymentStatus(paymentID string) (string, bool, error) {
+	baseURL := strings.TrimSpace(g.config.BaseURL)
+	url := fmt.Sprintf("%s/payments/%s", baseURL, paymentID)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to create status request: %w", err)
+	}
+
+	req.SetBasicAuth(g.config.ShopID, g.config.SecretKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := g.client.Do(req)
+	if err != nil {
+		return "", false, fmt.Errorf("request to YooKassa failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		var errResp map[string]interface{}
+		_ = json.NewDecoder(resp.Body).Decode(&errResp)
+		return "", false, fmt.Errorf("yookassa status error: %v (status: %d)", errResp, resp.StatusCode)
+	}
+
+	var yooResp struct {
+		ID     string `json:"id"`
+		Status string `json:"status"`
+		Paid   bool   `json:"paid"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&yooResp); err != nil {
+		return "", false, fmt.Errorf("failed to decode status response: %w", err)
+	}
+
+	return yooResp.Status, yooResp.Paid, nil
 }
 
 func generateIdempotenceKey() string {

@@ -13,10 +13,11 @@ import (
 )
 
 type updateModuleRequest struct {
-	ID      int                   `json:"id"`
-	Title   string                `json:"title" binding:"required"`
-	Order   int                   `json:"order"`
-	Lessons []updateLessonRequest `json:"lessons"`
+	ID         int                   `json:"id"`
+	Title      string                `json:"title" binding:"required"`
+	Order      int                   `json:"order"`
+	WeekNumber int                   `json:"week_number"` // Добавлено
+	Lessons    []updateLessonRequest `json:"lessons"`
 }
 
 type updateLessonRequest struct {
@@ -87,10 +88,11 @@ func (h *UpdateFullCourseHandler) Handle(c *gin.Context) {
 			}
 		}
 		modules[i] = updateFullUC.ModuleInput{
-			ID:      mod.ID,
-			Title:   mod.Title,
-			Order:   mod.Order,
-			Lessons: lessons,
+			ID:         mod.ID,
+			Title:      mod.Title,
+			Order:      mod.Order,
+			WeekNumber: mod.WeekNumber, // Добавлено
+			Lessons:    lessons,
 		}
 	}
 

@@ -1,8 +1,6 @@
 {
-    # Замените на ваш реальный email для получения SSL сертификатов Let's Encrypt
-    email your@email.com
+    email retro2123@mail.ru
     
-    # Глобальные логи
     log {
         output file /var/log/caddy/access.log {
             roll_size 100MiB
@@ -12,14 +10,33 @@
     }
 }
 
-:80 {
-    # Маршрутизация API запросов к Go бэкенду
+
+http://localhost {
+    handle /api/* {
+        reverse_proxy backend:8080
+    }
+    handle {
+        reverse_proxy frontend:80
+    }
+}
+
+# В docker-compose нужно будет передать: DOMAIN=mysite.ru
+{$DOMAIN:80} {
+
+    # Security Headers для всего сайта
+    header {
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # API запросы -> Бэкенд
     handle /api/* {
         reverse_proxy backend:8080
     }
 
-    # Все остальные запросы (статика, фронтенд) к Nginx
-    handle /* {
+    # Всё остальное -> Фронтенд (Nginx)
+    handle {
         reverse_proxy frontend:80
     }
 }

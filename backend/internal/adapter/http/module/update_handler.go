@@ -13,8 +13,9 @@ import (
 )
 
 type updateModuleRequest struct {
-	Title string `json:"title" binding:"required"`
-	Order int    `json:"order"`
+	Title      string `json:"title" binding:"required"`
+	Order      int    `json:"order"`
+	WeekNumber int    `json:"week_number"` // Добавлено
 }
 
 type UpdateHandler struct {
@@ -48,9 +49,10 @@ func (h *UpdateHandler) Handle(c *gin.Context) {
 	zap.L().Debug("Updating module", zap.Int("moduleID", moduleID), zap.String("title", req.Title))
 
 	input := updateUC.Input{
-		ID:    moduleID,
-		Title: req.Title,
-		Order: req.Order,
+		ID:         moduleID,
+		Title:      req.Title,
+		Order:      req.Order,
+		WeekNumber: req.WeekNumber,
 	}
 
 	if err := h.usecase.Execute(c.Request.Context(), input); err != nil {

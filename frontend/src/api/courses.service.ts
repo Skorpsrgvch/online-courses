@@ -13,7 +13,7 @@ import type {
   PaymentResponse
 } from './types';
 
-// --- Мапперы (Преобразование данных с бэкенда) ---
+
 
 const mapCourse = (data: any): Course => {
   return {
@@ -35,6 +35,10 @@ const mapCourse = (data: any): Course => {
     is_purchased: data.is_purchased || false,
     progress_percent: data.progress_percent || 0,
     modules: data.modules || [],
+
+    is_access_expired: data.is_access_expired,
+    days_remaining: data.days_remaining,
+    access_expires_at: data.access_expires_at,
   };
 };
 
@@ -54,6 +58,8 @@ const mapModule = (data: any): FullCourseModule => ({
   course_id: data.course_id,
   title: data.title,
   order: data.order,
+  is_locked: data.is_locked,
+  unlock_date: data.unlock_date || null,
   lessons: data.lessons ? data.lessons.map(mapLesson) : [],
 });
 
@@ -62,22 +68,8 @@ export const coursesService = {
 
 
   getAllCourses: async (): Promise<Course[]> => {
-    try {
-      console.log('[API] Запрос списка курсов...');
-      const response = await apiClient.get<any[]>('/courses');
-      
-      console.log('[API] Сырой ответ:', response.data);
-      
-      const courses = response.data.map(mapCourse);
-      
-      console.log('[API] Обработанные курсы:', courses);
-      console.log('[API] Количество активных курсов:', courses.filter(c => c.is_active).length);
-      
-      return courses;
-    } catch (error) {
-      console.error('[API] Ошибка получения курсов:', error);
-      throw error;
-    }
+    const response = await apiClient.get<any[]>('/courses');
+    return response.data.map(mapCourse);
   },
 
   getAllCoursesAdmin: async (): Promise<Course[]> => {
@@ -93,34 +85,43 @@ export const coursesService = {
     const courseData = data.course || data;
     const modulesData = data.modules || [];
 
+    const mappedCourse = mapCourse(courseData);
+
+    mappedCourse.is_access_expired = data.is_access_expired;
+    mappedCourse.days_remaining = data.days_remaining;
+    mappedCourse.access_expires_at = data.access_expires_at;
+
     return {
       course: mapCourse(courseData),
       modules: modulesData.map(mapModule),
+      is_access_expired: data.is_access_expired,
+      days_remaining: data.days_remaining,
+      access_expires_at: data.access_expires_at,
     };
   },
 
   createCourse: async (data: CreateCourseDto): Promise<void> => {
-    await apiClient.post('/courses', data);
+    await apiClient.post('/admin/courses', data);
   },
 
 
   createCourseWithModules: async (data: any): Promise<void> => {
-    await apiClient.post('/courses/with-modules', data);
+    await apiClient.post('/admin/courses/with-modules', data);
   },
 
 
   updateCourse: async (id: number, data: Partial<UpdateFullCourseDto>): Promise<void> => {
-    await apiClient.put(`/courses/${id}`, data);
+    await apiClient.put(`/admin/courses/${id}`, data);
   },
 
 
   updateFullCourse: async (id: number, data: UpdateFullCourseDto): Promise<void> => {
-    await apiClient.put(`/courses/${id}/full-update`, data);
+    await apiClient.put(`/admin/courses/${id}/full-update`, data);
   },
 
 
   toggleCourseStatus: async (id: number, isActive: boolean): Promise<void> => {
-    await apiClient.patch(`/courses/${id}/status`, { is_active: isActive });
+    await apiClient.patch(`/admin/courses/${id}/status`, { is_active: isActive });
   },
 
 
@@ -135,15 +136,15 @@ export const coursesService = {
   },
 
   createModule: async (data: CreateModuleDto): Promise<void> => {
-    await apiClient.post('/modules', data);
+    await apiClient.post('/admin/modules', data);
   },
 
   updateModule: async (id: number, data: { title: string; order: number }): Promise<void> => {
-    await apiClient.put(`/modules/${id}`, data);
+    await apiClient.put(`/admin/modules/${id}`, data);
   },
 
   deleteModule: async (id: number): Promise<void> => {
-    await apiClient.delete(`/modules/${id}`);
+    await apiClient.delete(`/admin/modules/${id}`);
   },
 
   getModuleLessons: async (moduleId: number): Promise<Lesson[]> => {
@@ -164,24 +165,24 @@ export const coursesService = {
   },
 
   createLesson: async (data: CreateLessonDto): Promise<void> => {
-    await apiClient.post('/lessons', data);
+    await apiClient.post('/admin/lessons', data);
   },
 
   updateLesson: async (id: number, data: Partial<CreateLessonDto>): Promise<void> => {
-    await apiClient.put(`/lessons/${id}`, data);
+    await apiClient.put(`/admin/lessons/${id}`, data);
   },
 
   deleteLesson: async (id: number): Promise<void> => {
-    await apiClient.delete(`/lessons/${id}`);
+    await apiClient.delete(`/admin/lessons/${id}`);
   },
 
   reorderLessons: async (moduleId: number, lessonIds: number[]): Promise<void> => {
     // Маршрут теперь ожидает :id, который мы передаем как moduleId
-    await apiClient.put(`/modules/${moduleId}/lessons/reorder`, { lesson_ids: lessonIds });
+    await apiClient.put(`/admin/modules/${moduleId}/lessons/reorder`, { lesson_ids: lessonIds });
   },
 
   reorderModules: async (courseId: number, moduleIds: number[]): Promise<void> => {
-    await apiClient.put(`/courses/${courseId}/modules/reorder`, { module_ids: moduleIds });
+    await apiClient.put(`/admin/courses/${courseId}/modules/reorder`, { module_ids: moduleIds });
   },
 
   /**  Прогресс и покупка  */
@@ -193,15 +194,12 @@ export const coursesService = {
     const response = await apiClient.post<PaymentResponse>('/payments', {
       course_id: courseId,
       return_url: returnUrl,
-      // amount, currency и т.д. если нужно
     });
     return response.data;
   },
 
   enrollFree: async (courseId: number, price: number): Promise<void> => {
-  console.log('[API] Отправка запроса на зачисление:', { courseId, price });
   
-  // Важно: передаем вторым аргументом объект с данными
   const response = await apiClient.post(`/courses/${courseId}/enroll-free`, {
     price: price 
   });

@@ -9,9 +9,10 @@ import (
 )
 
 type Input struct {
-	ID    int
-	Title string
-	Order int
+	ID         int
+	Title      string
+	Order      int
+	WeekNumber int
 }
 
 type Usecase struct {
@@ -43,7 +44,8 @@ func (u *Usecase) Execute(ctx context.Context, input Input) error {
 		return err
 	}
 
-	updated := domain.RestoreModule(input.ID, existing.CourseID, input.Order, input.Title)
+	// Сохраняем CourseID из существующего модуля, обновляем остальные поля
+	updated := domain.RestoreModule(input.ID, existing.CourseID, input.Order, input.WeekNumber, input.Title)
 
 	if err := u.updater.Update(ctx, updated); err != nil {
 		zap.L().Error("Failed to update module", zap.Int("moduleID", input.ID), zap.Error(err))

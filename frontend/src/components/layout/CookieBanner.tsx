@@ -85,13 +85,11 @@ const CookieBanner: React.FC = () => {
 
   const initAnalytics = () => {
     // Здесь код инициализации Яндекс.Метрики или Google Analytics
-    console.log('✅ Аналитика инициализирована');
     // Пример: (window as any).ym?.(XXXXXX, 'hit', window.location.href);
   };
 
   const initMarketing = () => {
     // Здесь код инициализации пикселей VK, Facebook и т.д.
-    console.log('✅ Маркетинговые инструменты инициализированы');
   };
 
   if (!isLoaded || !isVisible) return null;

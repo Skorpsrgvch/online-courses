@@ -13,11 +13,14 @@ import DashboardPage from './pages/Dashboard/DashboardPage';
 import CoursePage from './pages/Course/CoursePage';
 import LearnPage from './pages/Course/LearnPage';
 import AllCoursesPage from './pages/Course/AllCoursesPage';
+
 import AdminPage from './pages/Admin/AdminPage';
 import CourseFormPage from './pages/Admin/CourseFormPage';
 import PaymentSuccessPage from './pages/Course/PaymentSuccessPage';
 import ServicesPage from './pages/Service/ServicesPage';
 import ServicesFormPage from './pages/Admin/ServiceFormPage';
+import StudentsListPage from './pages/Admin/StudentsListPage';
+import StudentDetailPage from './pages/Admin/StudentDetailPage';
 
 import PrivacyPolicyPage from './pages/Policy/PrivacyPolicyPage';
 import ConsentPage from './pages/Policy/ConsentPage';
@@ -111,9 +114,25 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: '/course/:id/payment-success',
+        path: '/admin/students',
         element: (
           <ProtectedRoute allowedRoles={['admin']}>
+            <StudentsListPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/admin/students/:id',
+        element: (
+          <ProtectedRoute allowedRoles={['admin']}>
+           <StudentDetailPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/course/:id/payment-success',
+        element: (
+          <ProtectedRoute>
             <PaymentSuccessPage />
           </ProtectedRoute>
         ),

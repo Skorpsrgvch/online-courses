@@ -3,6 +3,8 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -14,6 +16,27 @@ type ProgressRepo struct {
 
 func NewProgressRepo(db *sql.DB) *ProgressRepo {
 	return &ProgressRepo{db: db}
+}
+
+// GetCourseStartDate возвращает дату начала курса (дату покупки).
+func (r *ProgressRepo) GetCourseStartDate(ctx context.Context, userID, courseID int) (*time.Time, error) {
+	var purchasedAt time.Time
+	err := r.db.QueryRowContext(ctx, `
+		SELECT purchased_at FROM user_purchases 
+		WHERE user_id = $1 AND course_id = $2
+	`, userID, courseID).Scan(&purchasedAt)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			zap.L().Debug("Course purchase not found", zap.Int("user_id", userID), zap.Int("course_id", courseID))
+			return nil, nil
+		}
+		zap.L().Error("Failed to get course start date", zap.Int("user_id", userID), zap.Int("course_id", courseID), zap.Error(err))
+		return nil, fmt.Errorf("get course start date: %w", err)
+	}
+
+	zap.L().Debug("Course start date fetched", zap.Int("user_id", userID), zap.Int("course_id", courseID), zap.Time("started_at", purchasedAt))
+	return &purchasedAt, nil
 }
 
 // MarkCompleted отмечает урок как пройденный
@@ -28,7 +51,7 @@ func (r *ProgressRepo) MarkCompleted(ctx context.Context, userID, lessonID int) 
 	_, err := r.db.ExecContext(ctx, query, userID, lessonID, time.Now().UTC())
 	if err != nil {
 		zap.L().Error("Failed to mark lesson as completed", zap.Int("user_id", userID), zap.Int("lesson_id", lessonID), zap.Error(err))
-		return err
+		return fmt.Errorf("mark lesson completed: %w", err)
 	}
 
 	zap.L().Debug("Lesson marked as completed", zap.Int("user_id", userID), zap.Int("lesson_id", lessonID))
@@ -45,10 +68,12 @@ func (r *ProgressRepo) GetCourseProgress(ctx context.Context, userID, courseID i
 	`, courseID).Scan(&total)
 
 	if err != nil {
-		return 0, 0, err
+		zap.L().Error("Failed to count total lessons", zap.Int("course_id", courseID), zap.Error(err))
+		return 0, 0, fmt.Errorf("count total lessons: %w", err)
 	}
 
 	if total == 0 {
+		zap.L().Debug("No lessons found in course", zap.Int("course_id", courseID))
 		return 0, 0, nil
 	}
 
@@ -60,7 +85,13 @@ func (r *ProgressRepo) GetCourseProgress(ctx context.Context, userID, courseID i
 		WHERE up.user_id = $1 AND m.course_id = $2
 	`, userID, courseID).Scan(&completed)
 
-	return completed, total, err
+	if err != nil {
+		zap.L().Error("Failed to count completed lessons", zap.Int("user_id", userID), zap.Int("course_id", courseID), zap.Error(err))
+		return 0, 0, fmt.Errorf("count completed lessons: %w", err)
+	}
+
+	zap.L().Debug("Course progress fetched", zap.Int("user_id", userID), zap.Int("course_id", courseID), zap.Int("completed", completed), zap.Int("total", total))
+	return completed, total, nil
 }
 
 // GetCompletedLessonsCount возвращает количество пройденных уроков пользователем в курсе
@@ -74,7 +105,13 @@ func (r *ProgressRepo) GetCompletedLessonsCount(ctx context.Context, userID, cou
 	`
 	var count int
 	err := r.db.QueryRowContext(ctx, query, userID, courseID).Scan(&count)
-	return count, err
+	if err != nil {
+		zap.L().Error("Failed to count completed lessons", zap.Int("user_id", userID), zap.Int("course_id", courseID), zap.Error(err))
+		return 0, fmt.Errorf("count completed lessons: %w", err)
+	}
+
+	zap.L().Debug("Completed lessons count fetched", zap.Int("user_id", userID), zap.Int("course_id", courseID), zap.Int("count", count))
+	return count, nil
 }
 
 // GetTotalLessonsCount возвращает общее количество уроков в курсе
@@ -87,7 +124,13 @@ func (r *ProgressRepo) GetTotalLessonsCount(ctx context.Context, courseID int) (
 	`
 	var count int
 	err := r.db.QueryRowContext(ctx, query, courseID).Scan(&count)
-	return count, err
+	if err != nil {
+		zap.L().Error("Failed to count total lessons", zap.Int("course_id", courseID), zap.Error(err))
+		return 0, fmt.Errorf("count total lessons: %w", err)
+	}
+
+	zap.L().Debug("Total lessons count fetched", zap.Int("course_id", courseID), zap.Int("count", count))
+	return count, nil
 }
 
 // IsLessonCompleted проверяет, прошел ли пользователь конкретный урок
@@ -97,5 +140,31 @@ func (r *ProgressRepo) IsLessonCompleted(ctx context.Context, userID, lessonID i
 		"SELECT EXISTS(SELECT 1 FROM user_progress WHERE user_id = $1 AND lesson_id = $2)",
 		userID, lessonID,
 	).Scan(&exists)
-	return exists, err
+
+	if err != nil {
+		zap.L().Error("Failed to check lesson completion", zap.Int("user_id", userID), zap.Int("lesson_id", lessonID), zap.Error(err))
+		return false, fmt.Errorf("check lesson completion: %w", err)
+	}
+
+	zap.L().Debug("Lesson completion status checked", zap.Int("user_id", userID), zap.Int("lesson_id", lessonID), zap.Bool("completed", exists))
+	return exists, nil
+}
+
+func (r *PurchaseRepo) GetPurchaseDate(ctx context.Context, userID, courseID int) (*time.Time, error) {
+	var purchasedAt time.Time
+	err := r.db.QueryRowContext(ctx, `
+		SELECT purchased_at FROM user_purchases 
+		WHERE user_id = $1 AND course_id = $2
+	`, userID, courseID).Scan(&purchasedAt)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil // Покупка не найдена
+		}
+		zap.L().Error("Failed to get purchase date", zap.Int("userID", userID), zap.Int("courseID", courseID), zap.Error(err))
+		return nil, err
+	}
+
+	zap.L().Debug("Purchase date fetched", zap.Int("userID", userID), zap.Int("courseID", courseID), zap.Time("date", purchasedAt))
+	return &purchasedAt, nil
 }

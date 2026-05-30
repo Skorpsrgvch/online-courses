@@ -95,7 +95,7 @@ const DashboardPage = () => {
       // Удаляем отзыв из списка локально
       setMyReviews(prev => prev.filter(r => r.id !== reviewId));
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Не удалось удалить отзыв');
+      setError(err.response?.data?.message || 'Не удалось удалить отзыв');
     } finally {
       setDeletingReviewId(null);
     }

@@ -3,6 +3,7 @@ package callback
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
 	"go.uber.org/zap"
@@ -13,8 +14,14 @@ type PaymentRepository interface {
 	Update(ctx context.Context, payment *domain.Payment) error
 }
 
-type PurchaseCreator interface {
+type PaymentStatusVerifier interface {
+	GetPaymentStatus(paymentID string) (status string, paid bool, err error)
+}
+
+type PurchaseRepository interface {
+	GetByUserAndCourse(ctx context.Context, userID, courseID int) (*domain.Purchase, error)
 	Create(ctx context.Context, userID, courseID int, paymentID string) error
+	UpdatePurchaseDate(ctx context.Context, userID, courseID int, newDate time.Time) error
 }
 
 type Input struct {
@@ -29,17 +36,19 @@ type Output struct {
 }
 
 type UseCase struct {
-	paymentRepo     PaymentRepository
-	purchaseCreator PurchaseCreator
+	paymentRepo  PaymentRepository
+	purchaseRepo PurchaseRepository
+	verifier     PaymentStatusVerifier
 }
 
-func NewUseCase(paymentRepo PaymentRepository, purchaseCreator PurchaseCreator) *UseCase {
-	if paymentRepo == nil || purchaseCreator == nil {
+func NewUseCase(paymentRepo PaymentRepository, purchaseRepo PurchaseRepository, verifier PaymentStatusVerifier) *UseCase {
+	if paymentRepo == nil || purchaseRepo == nil || verifier == nil {
 		zap.L().Fatal("Failed to initialize PaymentCallbackUseCase: dependencies are nil")
 	}
 	return &UseCase{
-		paymentRepo:     paymentRepo,
-		purchaseCreator: purchaseCreator,
+		paymentRepo:  paymentRepo,
+		purchaseRepo: purchaseRepo,
+		verifier:     verifier,
 	}
 }
 
@@ -56,17 +65,30 @@ func (u *UseCase) Execute(ctx context.Context, input Input) (*Output, error) {
 		return &Output{Processed: false}, err
 	}
 
-	zap.L().Debug("Current payment status", zap.String("currentStatus", string(payment.Status)))
-
-	// Идемпотентность: если уже успешно обработан
 	if payment.Status == domain.PaymentStatusSucceeded {
 		zap.L().Info("Payment already succeeded, skipping processing", zap.String("paymentID", input.PaymentID))
-		return &Output{Processed: true, Status: string(payment.Status)}, nil
+		return &Output{PaymentID: payment.PaymentID, Processed: true, Status: string(payment.Status)}, nil
 	}
 
-	switch input.Status {
+	status, paid, err := u.verifier.GetPaymentStatus(input.PaymentID)
+	if err != nil {
+		zap.L().Error("Failed to verify payment status in YooKassa", zap.String("paymentID", input.PaymentID), zap.Error(err))
+		return &Output{Processed: false}, err
+	}
+
+	if paid && status == "waiting_for_capture" {
+		status = "succeeded"
+	}
+
+	if input.Status != "" && input.Status != status {
+		zap.L().Warn("Webhook status differs from verified YooKassa status",
+			zap.String("paymentID", input.PaymentID),
+			zap.String("webhookStatus", input.Status),
+			zap.String("verifiedStatus", status))
+	}
+
+	switch status {
 	case "succeeded", "waiting_for_capture":
-		zap.L().Info("Processing successful payment", zap.String("paymentID", input.PaymentID))
 		payment.SetSucceeded()
 
 		if err := u.paymentRepo.Update(ctx, payment); err != nil {
@@ -74,36 +96,38 @@ func (u *UseCase) Execute(ctx context.Context, input Input) (*Output, error) {
 			return &Output{Processed: false}, err
 		}
 
-		// Создаем покупку
-		if err := u.purchaseCreator.Create(ctx, payment.UserID, payment.CourseID, payment.PaymentID); err != nil {
-			// Логируем ошибку, но не прерываем процесс, т.к. платеж уже успешен
-			zap.L().Warn("Failed to create purchase record (possible duplicate)",
-				zap.String("paymentID", input.PaymentID),
-				zap.Int("userID", payment.UserID),
-				zap.Int("courseID", payment.CourseID),
-				zap.Error(err))
+		existingPurchase, err := u.purchaseRepo.GetByUserAndCourse(ctx, payment.UserID, payment.CourseID)
+		if err != nil && !errors.Is(err, domain.ErrPurchaseNotFound) {
+			zap.L().Error("Failed to check existing purchase", zap.Error(err))
+		}
+
+		now := time.Now()
+		if existingPurchase != nil {
+			if err := u.purchaseRepo.UpdatePurchaseDate(ctx, payment.UserID, payment.CourseID, now); err != nil {
+				zap.L().Error("Failed to update purchase date", zap.Error(err))
+				return &Output{Processed: false}, err
+			}
 		} else {
-			zap.L().Info("Purchase created successfully", zap.Int("userID", payment.UserID), zap.Int("courseID", payment.CourseID))
+			if err := u.purchaseRepo.Create(ctx, payment.UserID, payment.CourseID, payment.PaymentID); err != nil {
+				zap.L().Error("Failed to create purchase", zap.Error(err))
+				return &Output{Processed: false}, err
+			}
 		}
 
 	case "canceled":
-		zap.L().Info("Processing canceled payment", zap.String("paymentID", input.PaymentID))
 		payment.SetCanceled()
 		if err := u.paymentRepo.Update(ctx, payment); err != nil {
-			zap.L().Error("Failed to update payment status to canceled", zap.String("paymentID", input.PaymentID), zap.Error(err))
 			return &Output{Processed: false}, err
 		}
 
 	case "failed":
-		zap.L().Info("Processing failed payment", zap.String("paymentID", input.PaymentID))
 		payment.SetFailed()
 		if err := u.paymentRepo.Update(ctx, payment); err != nil {
-			zap.L().Error("Failed to update payment status to failed", zap.String("paymentID", input.PaymentID), zap.Error(err))
 			return &Output{Processed: false}, err
 		}
 
 	default:
-		zap.L().Warn("Unknown payment status received", zap.String("status", input.Status), zap.String("paymentID", input.PaymentID))
+		zap.L().Warn("Unknown verified payment status", zap.String("status", status), zap.String("paymentID", input.PaymentID))
 	}
 
 	return &Output{

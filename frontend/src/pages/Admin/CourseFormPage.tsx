@@ -530,7 +530,7 @@ const CourseFormPage: React.FC<CourseFormPageProps> = ({ mode }) => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.title.trim()) {
-            alert('Название курса обязательно.');
+            setError('Название курса обязательно.');
             return;
         }
 
@@ -552,17 +552,15 @@ const CourseFormPage: React.FC<CourseFormPageProps> = ({ mode }) => {
 
             if (mode === 'create') {
                 await coursesService.createCourseWithModules(payload); 
-                alert('✅ Курс успешно создан!');
                 navigate('/admin');
             } else {
                 if (!id) throw new Error('ID курса не найден');
                 await coursesService.updateFullCourse(Number(id), payload);
-                alert('✅ Курс успешно обновлен!');
                 navigate('/admin');
             }
         } catch (err: any) {
             console.error(err);
-            alert(`❌ Ошибка: ${err.message || 'Неизвестная ошибка'}`);
+            setError(err.message || 'Неизвестная ошибка');
         } finally {
             setIsSaving(false);
         }

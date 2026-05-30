@@ -12,9 +12,10 @@ import (
 )
 
 type createModuleRequest struct {
-	CourseID int    `json:"course_id" binding:"required"`
-	Title    string `json:"title" binding:"required"`
-	Order    int    `json:"order"`
+	CourseID   int    `json:"course_id" binding:"required"`
+	Title      string `json:"title" binding:"required"`
+	Order      int    `json:"order"`
+	WeekNumber int    `json:"week_number"`
 }
 
 type CreateHandler struct {
@@ -41,9 +42,10 @@ func (h *CreateHandler) Handle(c *gin.Context) {
 	zap.L().Debug("Creating module", zap.Int("courseID", req.CourseID), zap.String("title", req.Title))
 
 	input := createUC.Input{
-		CourseID: req.CourseID,
-		Title:    req.Title,
-		Order:    req.Order,
+		CourseID:   req.CourseID,
+		Title:      req.Title,
+		Order:      req.Order,
+		WeekNumber: req.WeekNumber,
 	}
 
 	if err := h.usecase.Execute(c.Request.Context(), input); err != nil {

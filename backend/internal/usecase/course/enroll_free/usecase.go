@@ -23,7 +23,6 @@ type Purchaser interface {
 
 type Usecase struct {
 	purchaser Purchaser
-	logger    *zap.Logger
 }
 
 func NewUsecase(purchaser Purchaser) (*Usecase, error) {
@@ -36,20 +35,20 @@ func NewUsecase(purchaser Purchaser) (*Usecase, error) {
 }
 
 func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
-	u.logger.Debug("EnrollFree started", zap.Any("input", input))
+	zap.L().Debug("EnrollFree started", zap.Any("input", input))
 
 	if input.CourseID <= 0 || input.UserID <= 0 {
 		err := errors.New("invalid user or course ID")
-		u.logger.Warn("EnrollFree validation failed", zap.Error(err))
+		zap.L().Warn("EnrollFree validation failed", zap.Error(err))
 		return nil, err
 	}
 
 	if err := u.purchaser.EnrollFree(ctx, input.UserID, input.CourseID, input.CoursePrice); err != nil {
-		u.logger.Error("EnrollFree failed", zap.Error(err))
+		zap.L().Error("EnrollFree failed", zap.Error(err))
 		return nil, err
 	}
 
-	u.logger.Info("User enrolled to free course",
+	zap.L().Info("User enrolled to free course",
 		zap.Int("user_id", input.UserID),
 		zap.Int("course_id", input.CourseID),
 	)

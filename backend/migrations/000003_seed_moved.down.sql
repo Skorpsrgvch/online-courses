@@ -1,0 +1,1 @@
+-- No-op. Seed rollback lives in backend/seed.

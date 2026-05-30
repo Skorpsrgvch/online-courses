@@ -11,6 +11,6 @@ export function sanitizeArticleHtml(html: string): string {
     ],
     ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'target', 'rel', 'class'],
     ALLOW_DATA_ATTR: false,
-    ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|cid|xmpp|xxx):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+    ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|cid|xmpp|xxx):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i,
   });
 }

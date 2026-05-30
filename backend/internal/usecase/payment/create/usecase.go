@@ -2,6 +2,7 @@ package create
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -26,7 +27,7 @@ type CourseRepository interface {
 }
 
 type PurchaseChecker interface {
-	HasPurchased(ctx context.Context, userID, courseID int) (bool, error)
+	GetByUserAndCourse(ctx context.Context, userID, courseID int) (*domain.Purchase, error)
 }
 
 type Input struct {
@@ -64,15 +65,16 @@ func NewUseCase(paymentRepo PaymentRepository, courseGetter CourseRepository, pu
 func (u *UseCase) Execute(ctx context.Context, input Input) (*Output, error) {
 	zap.L().Info("Payment creation started", zap.Int("userID", input.UserID), zap.Int("courseID", input.CourseID))
 
-	// 1. Проверка на повторную покупку
-	hasPurchased, err := u.purchaseChecker.HasPurchased(ctx, input.UserID, input.CourseID)
-	if err != nil {
-		zap.L().Error("Failed to check purchase history", zap.Int("userID", input.UserID), zap.Int("courseID", input.CourseID), zap.Error(err))
+	existingPurchase, err := u.purchaseChecker.GetByUserAndCourse(ctx, input.UserID, input.CourseID)
+	if err != nil && !errors.Is(err, domain.ErrPurchaseNotFound) {
 		return nil, err
 	}
-	if hasPurchased {
-		zap.L().Warn("User attempted to buy already purchased course", zap.Int("userID", input.UserID), zap.Int("courseID", input.CourseID))
-		return nil, domain.ErrPaymentAlreadyPaid
+
+	if existingPurchase != nil {
+		expiresAt := existingPurchase.PurchasedAt.Add(365 * 24 * time.Hour)
+		if time.Now().Before(expiresAt) {
+			return nil, domain.ErrPaymentAlreadyPaid
+		}
 	}
 
 	// 2. Получаем курс

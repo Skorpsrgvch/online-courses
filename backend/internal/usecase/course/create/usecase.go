@@ -21,12 +21,14 @@ type Input struct {
 	CourseBasis       string
 	ClassBasis        string
 	Bonuses           []domain.BonusItem
+	Modules           []ModuleInput
 }
 
 type ModuleInput struct {
-	Title   string        `json:"title"`
-	Order   int           `json:"order"`
-	Lessons []LessonInput `json:"lessons"`
+	Title      string        `json:"title"`
+	Order      int           `json:"order"`
+	WeekNumber int           `json:"week_number"`
+	Lessons    []LessonInput `json:"lessons"`
 }
 
 type LessonInput struct {

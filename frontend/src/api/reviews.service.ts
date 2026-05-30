@@ -5,7 +5,6 @@ export interface ReviewsListResponse {
   reviews: Review[];
 }
 
-// Функция маппинга данных с бэкенда в формат фронтенда
 const mapReview = (data: any): Review => {
   return {
     id: data.ID || data.id,
@@ -22,7 +21,6 @@ const mapReview = (data: any): Review => {
 };
 
 export const reviewsService = {
-
   getApprovedReviews: async (): Promise<Review[]> => {
     return [];
   },
@@ -32,17 +30,13 @@ export const reviewsService = {
   },
 
   approveReview: async (id: number): Promise<void> => {
-    await apiClient.post(`/reviews/${id}/approve`);
+    await apiClient.post(`/admin/reviews/${id}/approve`);
   },
 
-  // Исправлено: отправляем причину в теле запроса (JSON)
   rejectReview: async (id: number, reason: string): Promise<void> => {
-    await apiClient.delete(`/reviews/${id}`, {
-      data: { reason }, // Передаем причину в теле DELETE запроса
-    });
+    await apiClient.put(`/admin/reviews/${id}`, { reason });
   },
 
-  // Получить одобренные отзывы по курсу
   getCourseReviews: async (courseId: number): Promise<Review[]> => {
     const response = await apiClient.get<ReviewsListResponse>(`/courses/${courseId}/reviews`);
 
@@ -57,7 +51,7 @@ export const reviewsService = {
   },
 
   getPendingReviews: async (): Promise<Review[]> => {
-    const response = await apiClient.get<ReviewsListResponse>('/reviews/admin/pending');
+    const response = await apiClient.get<ReviewsListResponse>('/admin/reviews/pending');
 
     if (Array.isArray(response.data.reviews)) {
       return response.data.reviews.map(mapReview);
@@ -75,7 +69,6 @@ export const reviewsService = {
     if (Array.isArray(response.data.reviews)) {
       return response.data.reviews.map(mapReview);
     }
-
     if (Array.isArray(response.data)) {
       return response.data.map(mapReview);
     }
@@ -83,8 +76,6 @@ export const reviewsService = {
     return [];
   },
 
-
-  // Реализация
   deleteReview: async (id: number): Promise<void> => {
     await apiClient.delete(`/reviews/${id}`);
   },

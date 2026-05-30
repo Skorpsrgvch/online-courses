@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
 	"go.uber.org/zap"
@@ -27,12 +28,56 @@ func (r *PurchaseRepo) HasPurchased(ctx context.Context, userID, courseID int) (
 	return exists, err
 }
 
+// GetByUserAndCourse возвращает запись о покупке, если она существует
+// Необходимо для использования в UseCase callback
+func (r *PurchaseRepo) GetByUserAndCourse(ctx context.Context, userID, courseID int) (*domain.Purchase, error) {
+	p := &domain.Purchase{}
+	query := `SELECT user_id, course_id, purchased_at FROM user_purchases WHERE user_id = $1 AND course_id = $2`
+
+	err := r.db.QueryRowContext(ctx, query, userID, courseID).Scan(
+		&p.UserID,
+		&p.CourseID,
+		&p.PurchasedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrPurchaseNotFound // Убедитесь, что эта ошибка определена в domain
+		}
+		return nil, err
+	}
+
+	return p, nil
+}
+
+// UpdatePurchaseDate обновляет дату покупки для продления доступа
+func (r *PurchaseRepo) UpdatePurchaseDate(ctx context.Context, userID, courseID int, newDate time.Time) error {
+	zap.L().Info("Updating purchase date to extend access",
+		zap.Int("user_id", userID),
+		zap.Int("course_id", courseID),
+		zap.Time("new_date", newDate))
+
+	_, err := r.db.ExecContext(ctx,
+		"UPDATE user_purchases SET purchased_at = $3 WHERE user_id = $1 AND course_id = $2",
+		userID, courseID, newDate,
+	)
+
+	if err != nil {
+		zap.L().Error("Failed to update purchase date", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
 // Create добавляет запись о покупке
 func (r *PurchaseRepo) Create(ctx context.Context, userID, courseID int, paymentID string) error {
-	_, err := r.db.ExecContext(ctx,
-		"INSERT INTO user_purchases (user_id, course_id) VALUES ($1, $2)",
-		userID, courseID,
-	)
+	_, err := r.db.ExecContext(ctx, `
+        INSERT INTO user_purchases (user_id, course_id, purchased_at)
+        VALUES ($1, $2, NOW())
+        ON CONFLICT (user_id, course_id)
+        DO UPDATE SET purchased_at = EXCLUDED.purchased_at
+  `, userID, courseID)
 	if err != nil {
 		zap.L().Error("Failed to create purchase", zap.Int("user_id", userID), zap.Int("course_id", courseID), zap.Error(err))
 		return err
@@ -125,9 +170,10 @@ func (r *PurchaseRepo) EnrollFree(ctx context.Context, userID, courseID int, cou
 	}
 
 	query := `
-        INSERT INTO user_purchases (user_id, course_id, purchased_at) 
-        VALUES ($1, $2, NOW())
-        ON CONFLICT (user_id, course_id) DO NOTHING
+    INSERT INTO user_purchases (user_id, course_id, purchased_at) 
+    VALUES ($1, $2, NOW())
+    ON CONFLICT (user_id, course_id)
+    DO UPDATE SET purchased_at = EXCLUDED.purchased_at
     `
 
 	res, err := r.db.ExecContext(ctx, query, userID, courseID)

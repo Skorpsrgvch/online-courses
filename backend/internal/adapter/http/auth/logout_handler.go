@@ -2,6 +2,8 @@ package auth
 
 import (
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/middleware"
@@ -34,7 +36,16 @@ func (h *LogoutHandler) Handle(c *gin.Context) {
 	}
 
 	// Удаляем куку
-	c.SetCookie("refresh_token", "", -1, "/", "", true, true)
+	secureCookie := strings.HasPrefix(strings.ToLower(os.Getenv("FRONTEND_URL")), "https://")
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   secureCookie,
+		SameSite: http.SameSiteLaxMode,
+	})
 
 	zap.L().Info("User logged out", zap.Int("userID", userID))
 	c.JSON(http.StatusOK, gin.H{"message": "logged out successfully"})

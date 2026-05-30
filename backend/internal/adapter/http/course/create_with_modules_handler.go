@@ -13,9 +13,10 @@ import (
 )
 
 type moduleRequest struct {
-	Title   string          `json:"title" binding:"required"`
-	Order   int             `json:"order"`
-	Lessons []lessonRequest `json:"lessons"`
+	Title      string          `json:"title" binding:"required"`
+	Order      int             `json:"order"`
+	WeekNumber int             `json:"week_number"`
+	Lessons    []lessonRequest `json:"lessons"`
 }
 
 type lessonRequest struct {
@@ -77,9 +78,10 @@ func (h *CreateWithModulesHandler) Handle(c *gin.Context) {
 			}
 		}
 		modules[i] = createUC.ModuleInput{
-			Title:   mod.Title,
-			Order:   mod.Order,
-			Lessons: lessons,
+			Title:      mod.Title,
+			Order:      mod.Order,
+			WeekNumber: mod.WeekNumber,
+			Lessons:    lessons,
 		}
 	}
 

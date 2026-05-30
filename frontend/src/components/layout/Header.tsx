@@ -7,7 +7,7 @@ import { authService } from '../../api/auth.service';
 export const Header: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
-  
+
 
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -63,17 +63,26 @@ export const Header: React.FC = () => {
             className="group flex items-center gap-3 z-50 relative no-underline"
             style={{ textDecoration: 'none' }}
           >
-            <div
-              className="w-10 h-10 bg-linear-to-br from-rose-400 to-rose-600 rounded-full flex items-center justify-center text-white font-serif font-bold text-xl shadow-lg transition-all duration-300"
-            >
-              W
+            <div className="w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0">
+              <img
+                src="/images/logo.png"
+                alt="Ольга Пимченко"
+                className="w-full h-full object-contain"
+              />
             </div>
-            <span className="text-2xl font-serif font-bold tracking-tight text-gray-800 transition-colors duration-300">
-              Woman<span className="text-rose-500">Formula</span>
-            </span>
+            {/* Черта-разделитель */}
+            <div className="w-px h-8 sm:h-10 bg-rose-300 flex-shrink-0 hidden sm:block"></div>
+            <div className="flex flex-col leading-tight">
+              <span className="text-sm sm:text-base md:text-lg font-serif font-light tracking-tight text-gray-800 transition-colors duration-300">
+                Ольга Пимченко
+              </span>
+              <span className="text-sm sm:text-base md:text-lg font-serif font-light text-pink-600 tracking-tight transition-colors duration-300 -mt-1.5">
+                Тазовое здоровье
+              </span>
+            </div>
           </Link>
 
-          
+
           <nav className="hidden lg:flex items-center space-x-8">
             {navLinks.map((link) => (
               <a
@@ -88,7 +97,7 @@ export const Header: React.FC = () => {
             ))}
           </nav>
 
-          
+
           <div className="hidden lg:flex items-center gap-2 lg:gap-4">
             {isAuthenticated ? (
               <div className="flex items-center gap-2 lg:gap-3">
@@ -171,7 +180,8 @@ export const Header: React.FC = () => {
                   <Link
                     to="/dashboard"
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="block px-4 py-3 text-base font-medium text-gray-700 hover:text-rose-600 bg-gray-50 rounded-xl"
+                    className="block px-4 py-3 text-base font-medium text-gray-700! hover:text-rose-600! bg-gray-50 rounded-xl"
+                    style={{ textDecoration: 'none' }}
                   >
                     Личный кабинет
                   </Link>
@@ -179,7 +189,8 @@ export const Header: React.FC = () => {
                     <Link
                       to="/admin"
                       onClick={() => setIsMobileMenuOpen(false)}
-                      className="block px-4 py-3 text-base font-medium text-gray-700 hover:text-rose-600 bg-gray-50 rounded-xl"
+                      className="block px-4 py-3 text-base font-medium text-gray-700! hover:text-rose-600! hover:bg-red-50 rounded-xl"
+                      style={{ textDecoration: 'none' }}
                     >
                       Админ-панель
                     </Link>

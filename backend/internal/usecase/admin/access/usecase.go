@@ -31,13 +31,18 @@ type PurchaseRepo interface {
 	GrantAccess(ctx context.Context, userID, courseID int) error
 }
 
+type EmailSender interface {
+	SendCourseAccessGranted(to, userName, courseTitle string) error
+}
+
 type Usecase struct {
 	userRepo     UserRepo
 	courseRepo   CourseRepo
 	purchaseRepo PurchaseRepo
+	emailSender  EmailSender
 }
 
-func NewUsecase(userRepo UserRepo, courseRepo CourseRepo, purchaseRepo PurchaseRepo) (*Usecase, error) {
+func NewUsecase(userRepo UserRepo, courseRepo CourseRepo, purchaseRepo PurchaseRepo, emailSender EmailSender) (*Usecase, error) {
 	if userRepo == nil || courseRepo == nil || purchaseRepo == nil {
 		return nil, errors.New("all repositories are required")
 	}
@@ -46,6 +51,7 @@ func NewUsecase(userRepo UserRepo, courseRepo CourseRepo, purchaseRepo PurchaseR
 		userRepo:     userRepo,
 		courseRepo:   courseRepo,
 		purchaseRepo: purchaseRepo,
+		emailSender:  emailSender,
 	}, nil
 }
 
@@ -53,7 +59,8 @@ func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
 	zap.L().Info("Granting access started", zap.Int("user_id", input.UserID), zap.Int("course_id", input.CourseID))
 
 	// 1. Проверяем пользователя
-	if _, err := u.userRepo.GetUserByID(ctx, input.UserID); err != nil {
+	user, err := u.userRepo.GetUserByID(ctx, input.UserID)
+	if err != nil {
 		if errors.Is(err, domain.ErrUserNotFound) {
 			zap.L().Warn("User not found for access grant", zap.Int("user_id", input.UserID))
 			return nil, errors.New("пользователь не найден")
@@ -63,7 +70,8 @@ func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
 	}
 
 	// 2. Проверяем курс
-	if _, err := u.courseRepo.GetByID(ctx, input.CourseID); err != nil {
+	course, err := u.courseRepo.GetByID(ctx, input.CourseID)
+	if err != nil {
 		if errors.Is(err, domain.ErrCourseNotFound) {
 			zap.L().Warn("Course not found for access grant", zap.Int("course_id", input.CourseID))
 			return nil, errors.New("курс не найден")
@@ -76,6 +84,17 @@ func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
 	if err := u.purchaseRepo.GrantAccess(ctx, input.UserID, input.CourseID); err != nil {
 		zap.L().Error("Failed to grant access in repo", zap.Error(err))
 		return nil, err
+	}
+
+	if u.emailSender != nil {
+		if err := u.emailSender.SendCourseAccessGranted(user.Email, user.Name, course.Title); err != nil {
+			zap.L().Warn("Access granted, but notification email was not sent",
+				zap.Int("user_id", input.UserID),
+				zap.Int("course_id", input.CourseID),
+				zap.String("email", user.Email),
+				zap.Error(err),
+			)
+		}
 	}
 
 	zap.L().Info("Access granted successfully", zap.Int("user_id", input.UserID), zap.Int("course_id", input.CourseID))

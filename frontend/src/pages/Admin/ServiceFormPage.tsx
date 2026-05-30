@@ -101,7 +101,9 @@ const ServiceFormPage: React.FC<ServiceFormPageProps> = ({ mode }) => {
         <div className="min-h-screen bg-gray-50 py-10">
             <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="mb-6">
-                    <a href="/admin" className="text-sm text-gray-500 hover:text-rose-500 transition-colors">← Назад в админ-панель</a>
+                    <a href="/admin" className="text-sm text-gray-500 hover:text-rose-500 transition-colors"
+                    style={{ textDecoration: 'none' }}
+                    >← Назад в админ-панель</a>
                     <h1 className="text-2xl font-serif font-bold text-gray-900 mt-2">
                         {isEdit ? 'Редактирование услуги' : 'Новая услуга'}
                     </h1>

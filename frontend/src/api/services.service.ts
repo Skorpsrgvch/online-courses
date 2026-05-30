@@ -19,7 +19,7 @@ export const servicesService = {
   },
 
   getById: async (id: number): Promise<Service> => {
-    const response = await apiClient.get<Service>(`/services/${id}`);
+    const response = await apiClient.get<Service>(`/admin/services/${id}`);
     // Применяем маппинг для гарантии корректности типов
     return mapService(response.data);
   },
@@ -34,9 +34,7 @@ export const servicesService = {
     };
     
     // Логируем для отладки (удалите в продакшене)
-    console.log('Creating service with payload:', payload);
-    
-    await apiClient.post('/services', payload);
+    await apiClient.post('/admin/services', payload);
   },
 
   update: async (id: number, data: Partial<Service>): Promise<void> => {
@@ -49,16 +47,14 @@ export const servicesService = {
     };
 
     // Логируем для отладки
-    console.log('Updating service ID:', id, 'with payload:', payload);
-
-    await apiClient.put(`/services/${id}`, payload);
+    await apiClient.put(`/admin/services/${id}`, payload);
   },
 
   delete: async (id: number): Promise<void> => {
-    await apiClient.delete(`/services/${id}`);
+    await apiClient.delete(`/admin/services/${id}`);
   },
 
   reorder: async (serviceIds: number[]): Promise<void> => {
-    await apiClient.put('/services/reorder', { service_ids: serviceIds });
+    await apiClient.put('/admin/services/reorder', { service_ids: serviceIds });
   },
 };

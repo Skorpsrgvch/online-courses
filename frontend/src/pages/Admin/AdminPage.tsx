@@ -29,6 +29,7 @@ const AdminPage = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserSearchResult | null>(null);
+  const [selectedUserCourseIds, setSelectedUserCourseIds] = useState<number[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<number | ''>('');
   const [isGranting, setIsGranting] = useState(false);
   const [accessMessage, setAccessMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -81,6 +82,9 @@ const AdminPage = () => {
 
   const activeCourses = allCourses.filter(c => c.is_active !== false);
   const hiddenCourses = allCourses.filter(c => c.is_active === false);
+  const availableCoursesForSelectedUser = selectedUser
+    ? activeCourses.filter(course => !selectedUserCourseIds.includes(course.id))
+    : activeCourses;
 
   const toggleCourseStatus = async (course: Course) => {
     const shouldHide = course.is_active !== false;
@@ -143,7 +147,7 @@ const AdminPage = () => {
 
     try {
       // ВАЖНО: Используем PUT вместо DELETE
-      await apiClient.put(`/reviews/${selectedReviewId}`, {
+      await apiClient.put(`/admin/reviews/${selectedReviewId}`, {
         reason: rejectReason.trim(), // Передаем объект напрямую как тело запроса
       });
 
@@ -161,7 +165,7 @@ const AdminPage = () => {
     if (window.confirm('Одобрить этот отзыв?')) {
       try {
         // Роут: POST /reviews/:id/approve
-        await apiClient.post(`/reviews/${id}/approve`);
+        await apiClient.post(`/admin/reviews/${id}/approve`);
         loadPendingReviews();
       } catch (error: any) {
         const msg = error.response?.data?.message || error.response?.data?.error || 'Ошибка при одобрении';
@@ -186,26 +190,28 @@ const AdminPage = () => {
   // Логика поиска пользователей
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (emailQuery.trim().length >= 2 && activeTab === 'grant-access') {
+      if (emailQuery.trim().length >= 2 && activeTab === 'grant-access' && emailQuery !== selectedUser?.email) {
         performSearch();
       } else if (emailQuery.trim().length === 0) {
         setSearchResults([]);
         setSelectedUser(null);
+        setSelectedUserCourseIds([]);
       }
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [emailQuery, activeTab]);
+  }, [emailQuery, activeTab, selectedUser]);
 
   const performSearch = async () => {
     if (!emailQuery.trim()) return;
     setIsSearching(true);
     setSearchResults([]);
     setSelectedUser(null);
+    setSelectedUserCourseIds([]);
     setAccessMessage(null);
 
     try {
-      const response = await apiClient.post<UserSearchResult[]>('/users/search', {
+      const response = await apiClient.post<UserSearchResult[]>('/admin/users/search', {
         email: emailQuery,
         limit: 10
       });
@@ -218,6 +224,26 @@ const AdminPage = () => {
     }
   };
 
+  const handleSelectUser = async (user: UserSearchResult) => {
+    setSelectedUser(user);
+    setSearchResults([]);
+    setEmailQuery(user.email);
+    setSelectedCourseId('');
+    setSelectedUserCourseIds([]);
+    setAccessMessage(null);
+
+    try {
+      const response = await apiClient.get(`/admin/students/${user.id}`);
+      const courseIds = Array.isArray(response.data?.courses)
+        ? response.data.courses.map((course: any) => course.course_id)
+        : [];
+      setSelectedUserCourseIds(courseIds);
+    } catch (err: any) {
+      console.error(err);
+      showErrorModal(err.response?.data?.error || 'Не удалось загрузить курсы пользователя.');
+    }
+  };
+
   // Логика выдачи доступа
   const handleGrantAccess = async () => {
     if (!selectedUser || !selectedCourseId) return;
@@ -226,7 +252,7 @@ const AdminPage = () => {
     setAccessMessage(null);
 
     try {
-      await apiClient.post('/access', {
+      await apiClient.post('/admin/access', {
         user_id: selectedUser.id,
         course_id: Number(selectedCourseId)
       });
@@ -237,6 +263,7 @@ const AdminPage = () => {
       });
 
       setSelectedUser(null);
+      setSelectedUserCourseIds([]);
       setSelectedCourseId('');
       setEmailQuery('');
       setSearchResults([]);
@@ -320,6 +347,16 @@ const AdminPage = () => {
           <div>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-gray-800">Управление курсами</h2>
+
+              <button 
+                  onClick={() => navigate('/admin/students')} 
+                  className="px-4 py-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg hover:bg-indigo-100 hover:border-indigo-300 transition-all text-sm font-medium shadow-sm flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  Статистика учеников
+                </button>
               <button onClick={() => navigate('/admin/courses/new')} className="px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors text-sm font-medium shadow-sm">
                 + Создать курс
               </button>
@@ -570,12 +607,7 @@ const AdminPage = () => {
                       {searchResults.map((user) => (
                         <li
                           key={user.id}
-                          onClick={() => {
-                            setSelectedUser(user);
-                            setSearchResults([]); // Очищаем список после выбора
-                            setEmailQuery(user.email);
-                            setAccessMessage(null);
-                          }}
+                          onClick={() => handleSelectUser(user)}
                           className="p-3 cursor-pointer hover:bg-rose-50 transition-colors flex justify-between items-center"
                         >
                           <div>
@@ -605,14 +637,14 @@ const AdminPage = () => {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none bg-white disabled:bg-gray-50"
                 >
                   <option value="">-- Выберите курс --</option>
-                  {activeCourses && activeCourses.length > 0 ? (
-                    activeCourses.map((course) => (
+                  {availableCoursesForSelectedUser && availableCoursesForSelectedUser.length > 0 ? (
+                    availableCoursesForSelectedUser.map((course) => (
                       <option key={course.id} value={course.id}>
                         {course.title} ({course.price === 0 ? 'Бесплатно' : `${course.price} ₽`})
                       </option>
                     ))
                   ) : (
-                    <option disabled>Нет активных курсов</option>
+                    <option disabled>{selectedUser ? 'У пользователя уже есть все активные курсы' : 'Нет активных курсов'}</option>
                   )}
                 </select>
               </div>
@@ -625,7 +657,7 @@ const AdminPage = () => {
                       Вы собираетесь выдать доступ пользователю <strong>{selectedUser.email}</strong> к курсу:
                     </p>
                     <p className="text-lg font-bold text-blue-900 mt-1">
-                      {activeCourses.find(c => c.id === selectedCourseId)?.title || 'Выбранный курс'}
+                      {availableCoursesForSelectedUser.find(c => c.id === selectedCourseId)?.title || 'Выбранный курс'}
                     </p>
                   </div>
 

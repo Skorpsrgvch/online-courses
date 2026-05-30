@@ -22,6 +22,7 @@ import (
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/progress"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/review"
 	serviceHttp "github.com/Skorpsrgvch/online-courses/internal/adapter/http/service"
+	supportHttp "github.com/Skorpsrgvch/online-courses/internal/adapter/http/support"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/user"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/postgres"
 	"github.com/Skorpsrgvch/online-courses/pkg/db"
@@ -36,6 +37,8 @@ import (
 
 	// Admin UseCases
 	access "github.com/Skorpsrgvch/online-courses/internal/usecase/admin/access"
+	"github.com/Skorpsrgvch/online-courses/internal/usecase/admin/get_student_details"
+	"github.com/Skorpsrgvch/online-courses/internal/usecase/admin/get_top_students"
 	search "github.com/Skorpsrgvch/online-courses/internal/usecase/admin/search"
 
 	// Course UseCases
@@ -85,6 +88,7 @@ import (
 	serviceGet "github.com/Skorpsrgvch/online-courses/internal/usecase/service/get"
 	serviceList "github.com/Skorpsrgvch/online-courses/internal/usecase/service/list"
 	serviceUpdate "github.com/Skorpsrgvch/online-courses/internal/usecase/service/update"
+	supportContact "github.com/Skorpsrgvch/online-courses/internal/usecase/support/contact"
 
 	// User UseCases
 	changePassword "github.com/Skorpsrgvch/online-courses/internal/usecase/user/change_password"
@@ -164,11 +168,9 @@ func main() {
 	resetTokenRepo := postgres.NewResetTokenRepo(dbConn)
 	paymentRepo := postgres.NewPaymentRepository(dbConn)
 	refreshTokenRepo := postgres.NewRefreshTokenRepo(dbConn)
+	adminStatsRepo := postgres.NewAdminStatsRepo(dbConn)
 
 	// === Инициализация UseCases ===
-	// Теперь мы НЕ передаем логгер в конструкторы. Логгер берется внутри через zap.L().
-	// Проверка на ошибку остается только там, где конструктор может вернуть ошибку (валидация зависимостей).
-
 	// Auth
 	registerUC, err := register.NewUsecase(userRepo)
 	if err != nil {
@@ -211,7 +213,7 @@ func main() {
 		zap.L().Fatal("Failed to create course with modules usecase", zap.Error(err))
 	}
 
-	getFullCourseUC, err := courseGetFull.NewUsecase(courseRepo, moduleRepo, lessonRepo, purchaseRepo, progressRepo)
+	getFullCourseUC, err := courseGetFull.NewUsecase(courseRepo, moduleRepo, lessonRepo, purchaseRepo, progressRepo, purchaseRepo)
 	if err != nil {
 		zap.L().Fatal("Failed to create get full course usecase", zap.Error(err))
 	}
@@ -231,10 +233,6 @@ func main() {
 		zap.L().Fatal("Failed to create list course usecase", zap.Error(err))
 	}
 
-	// UpdateFullCourse может не возвращать ошибку, если конструктор простой, но лучше проверить сигнатуру.
-	// Если конструктор возвращает (*Usecase, error), используем этот паттерн.
-	// Если просто *Usecase, то присваиваем напрямую.
-	// Предполагаем, что мы привели все конструкторы к виду (deps) (*Usecase, error) для единообразия.
 	updateFullCourseUC, err := updatefullcourse.NewUsecase(courseFullRepo)
 	if err != nil {
 		zap.L().Fatal("Failed to create update full course usecase", zap.Error(err))
@@ -382,14 +380,24 @@ func main() {
 		zap.L().Fatal("Failed to create search users usecase", zap.Error(err))
 	}
 
-	accessUC, err := access.NewUsecase(userRepo, courseRepo, purchaseRepo)
+	accessUC, err := access.NewUsecase(userRepo, courseRepo, purchaseRepo, emailSender)
 	if err != nil {
 		zap.L().Fatal("Failed to create access usecase", zap.Error(err))
 	}
 
+	getTopStudentsUC, err := get_top_students.NewUsecase(adminStatsRepo)
+	if err != nil {
+		zap.L().Fatal("Failed to create get top students usecase", zap.Error(err))
+	}
+
+	getStudentDetailsUC, err := get_student_details.NewUsecase(adminStatsRepo)
+	if err != nil {
+		zap.L().Fatal("Failed to create get student details usecase", zap.Error(err))
+	}
+
 	// Payments
 	confirmPaymentUC := confirm.NewUseCase(paymentRepo, purchaseRepo)
-	callbackPaymentUC := callback.NewUseCase(paymentRepo, purchaseRepo)
+	callbackPaymentUC := callback.NewUseCase(paymentRepo, purchaseRepo, paymentGateway)
 	listPaymentUC := list.NewUseCase(paymentRepo)
 	createPaymentUC := create.NewUseCase(paymentRepo, courseRepo, purchaseRepo, paymentGateway)
 
@@ -398,9 +406,15 @@ func main() {
 		zap.L().Fatal("Failed to create enroll free usecase", zap.Error(err))
 	}
 
+	supportContactUC, err := supportContact.NewUsecase(emailSender)
+	if err != nil {
+		zap.L().Fatal("Failed to create support contact usecase", zap.Error(err))
+	}
+
 	// === Хендлеры ===
+
 	registerHandler := auth.NewRegisterHandler(registerUC)
-	loginHandler := auth.NewLoginHandler(loginUC)
+	loginHandler := auth.NewLoginHandler(loginUC, refreshTokenRepo)
 	forgotPasswordHandler := auth.NewForgotPasswordHandler(forgotPasswordUC)
 	resetPasswordHandler := auth.NewResetPasswordHandler(resetPasswordUC)
 	refreshHandler := auth.NewRefreshHandler(refreshUC)
@@ -452,9 +466,11 @@ func main() {
 	callbackPaymentHandler := payment.NewCallbackHandler(callbackPaymentUC)
 	listPaymentHandler := payment.NewListHandler(listPaymentUC)
 	enrollFreeHandler := course.NewEnrollFreeHandler(enrollFreeUC)
+	supportContactHandler := supportHttp.NewContactHandler(supportContactUC)
 
 	searchUsersHandler := admin.NewSearchUsersHandler(searchUsersUC)
 	accessHandler := admin.NewGrantAccessHandler(accessUC)
+	statsHandler := admin.NewStatsHandler(getTopStudentsUC, getStudentDetailsUC)
 
 	// === Роутер ===
 	r := gin.New()
@@ -462,7 +478,7 @@ func main() {
 	r.Use(func(c *gin.Context) {
 		frontendURL := os.Getenv("FRONTEND_URL")
 		if frontendURL == "" {
-			frontendURL = "http://localhost:3000"
+			zap.L().Fatal("FRONTEND_URL must be set")
 		}
 		c.Writer.Header().Set("Access-Control-Allow-Origin", frontendURL)
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -475,6 +491,31 @@ func main() {
 		c.Next()
 	})
 
+	r.GET("/health", func(c *gin.Context) {
+		zap.L().Info("🔍 Health check HIT", zap.String("path", c.Request.URL.Path))
+
+		// Проверка БД (опционально)
+		if dbConn != nil {
+			ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+			defer cancel()
+			if err := dbConn.PingContext(ctx); err != nil {
+				zap.L().Warn("Health: DB ping failed", zap.Error(err))
+				c.JSON(http.StatusServiceUnavailable, gin.H{
+					"status":  "unhealthy",
+					"error":   "db_ping_failed",
+					"version": "v1.0-test",
+				})
+				return
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":    "healthy",
+			"service":   "backend",
+			"timestamp": time.Now().Unix(),
+			"version":   "v1.0-test", // ← маркер, что код обновился
+		})
+	})
 	// Public Auth
 	authGroup := r.Group("/api/auth")
 	authGroup.Use(middleware.RateLimitMiddleware(rate.Every(1*time.Second), 5))
@@ -490,16 +531,19 @@ func main() {
 	publicApi := r.Group("/api")
 	{
 		publicApi.GET("/courses", listCourseHandler.Handle)
+		publicApi.GET("/courses/:id/full", middleware.AuthMiddleware(), getFullCourseHandler.Handle)
 		publicApi.GET("/services", listServiceHandler.Handle)
+		publicApi.GET("/services/:id", getServiceHandler.Handle)
 		publicApi.GET("/payments/:payment_id/confirm", confirmPaymentHandler.HandleGet)
 		publicApi.POST("/payments/callback", callbackPaymentHandler.Handle)
 		publicApi.GET("/courses/:id/modules", getModuleHandler.Handle)
 		publicApi.GET("/courses/:id/reviews", listReviewHandler.Handle)
+		publicApi.POST("/support/contact", supportContactHandler.Handle)
 	}
 
-	// Protected API
+	// Protected user API
 	protectedApi := r.Group("/api")
-	protectedApi.Use(middleware.AuthMiddleware())
+	protectedApi.Use(middleware.AuthMiddleware(), middleware.RequireAuthMiddleware())
 	{
 		protectedApi.GET("/auth/me", auth.NewMeHandler().Handle)
 		protectedApi.POST("/auth/logout", logoutHandler.Handle)
@@ -509,49 +553,56 @@ func main() {
 		protectedApi.PUT("/user/password", changePasswordHandler.Handle)
 		protectedApi.GET("/user/courses", userCoursesHandler.Handle)
 
-		protectedApi.POST("/users/search", searchUsersHandler.Handle)
-		protectedApi.POST("/access", accessHandler.Handle)
-
-		protectedApi.GET("/courses/:id/full", getFullCourseHandler.Handle)
-
-		protectedApi.POST("/services", createServiceHandler.Handle)
-		protectedApi.PUT("/services/:id", updateServiceHandler.Handle)
-		protectedApi.DELETE("/services/:id", deleteServiceHandler.Handle)
-		protectedApi.GET("/services/:id", getServiceHandler.Handle)
-
-		protectedApi.POST("/courses", createCourseHandler.Handle)
-		protectedApi.POST("/courses/with-modules", createWithModulesHandler.Handle)
-		protectedApi.PUT("/courses/:id", updateCourseHandler.Handle)
-		protectedApi.PUT("/courses/:id/full-update", updateFullCourseHandler.Handle)
-		protectedApi.PATCH("/courses/:id/status", updateCourseHandler.HandleStatusPatch)
-		protectedApi.DELETE("/courses/:id", deleteCourseHandler.Handle)
 		protectedApi.POST("/courses/:id/enroll-free", enrollFreeHandler.Handle)
-		protectedApi.GET("/admin/courses/all", listCourseHandler.HandleAdmin)
-
-		protectedApi.POST("/modules", createModuleHandler.Handle)
-		protectedApi.GET("/modules/:id/lessons", getLessonHandler.Handle)
-		protectedApi.PUT("/modules/:id", updateModuleHandler.Handle)
-		protectedApi.DELETE("/modules/:id", deleteModuleHandler.Handle)
-
-		protectedApi.PUT("/courses/:id/modules/reorder", reorderHandler.HandleModules)
-		protectedApi.PUT("/modules/:id/lessons/reorder", reorderHandler.HandleLessons)
-
-		protectedApi.POST("/lessons", createLessonHandler.Handle)
-		protectedApi.PUT("/lessons/:id", updateLessonHandler.Handle)
-		protectedApi.DELETE("/lessons/:id", deleteLessonHandler.Handle)
 
 		protectedApi.POST("/progress/lessons/:id/mark", markProgressHandler.Handle)
 		protectedApi.POST("/reviews", createReviewHandler.Handle)
-		protectedApi.POST("/reviews/:id/approve", approveReviewHandler.Handle)
-		protectedApi.GET("/reviews/admin/pending", pendingReviewHandler.Handle)
-		protectedApi.PUT("/reviews/:id", rejectReviewHandler.Handle)
 		protectedApi.DELETE("/reviews/:id", deleteReviewHandler.Handle)
-		protectedApi.DELETE("/admin/reviews/:id", adminDeleteHandler.Handle)
 		protectedApi.GET("/reviews/my", myReviewsHandler.Handle)
 
 		protectedApi.POST("/payments", createPaymentHandler.Handle)
 		protectedApi.GET("/payments", listPaymentHandler.Handle)
 		protectedApi.POST("/payments/:payment_id/confirm", confirmPaymentHandler.Handle)
+	}
+
+	// Admin API
+	adminApi := r.Group("/api/admin")
+	adminApi.Use(middleware.AuthMiddleware(), middleware.RequireAdminMiddleware())
+	{
+		adminApi.POST("/users/search", searchUsersHandler.Handle)
+		adminApi.POST("/access", accessHandler.Handle)
+
+		adminApi.GET("/courses/all", listCourseHandler.HandleAdmin)
+		adminApi.POST("/courses", createCourseHandler.Handle)
+		adminApi.POST("/courses/with-modules", createWithModulesHandler.Handle)
+		adminApi.PUT("/courses/:id", updateCourseHandler.Handle)
+		adminApi.PUT("/courses/:id/full-update", updateFullCourseHandler.Handle)
+		adminApi.PATCH("/courses/:id/status", updateCourseHandler.HandleStatusPatch)
+		adminApi.DELETE("/courses/:id", deleteCourseHandler.Handle)
+		adminApi.PUT("/courses/:id/modules/reorder", reorderHandler.HandleModules)
+
+		adminApi.POST("/services", createServiceHandler.Handle)
+		adminApi.GET("/services/:id", getServiceHandler.Handle)
+		adminApi.PUT("/services/:id", updateServiceHandler.Handle)
+		adminApi.DELETE("/services/:id", deleteServiceHandler.Handle)
+
+		adminApi.POST("/modules", createModuleHandler.Handle)
+		adminApi.GET("/modules/:id/lessons", getLessonHandler.Handle)
+		adminApi.PUT("/modules/:id", updateModuleHandler.Handle)
+		adminApi.DELETE("/modules/:id", deleteModuleHandler.Handle)
+		adminApi.PUT("/modules/:id/lessons/reorder", reorderHandler.HandleLessons)
+
+		adminApi.POST("/lessons", createLessonHandler.Handle)
+		adminApi.PUT("/lessons/:id", updateLessonHandler.Handle)
+		adminApi.DELETE("/lessons/:id", deleteLessonHandler.Handle)
+
+		adminApi.POST("/reviews/:id/approve", approveReviewHandler.Handle)
+		adminApi.GET("/reviews/pending", pendingReviewHandler.Handle)
+		adminApi.PUT("/reviews/:id", rejectReviewHandler.Handle)
+		adminApi.DELETE("/reviews/:id", adminDeleteHandler.Handle)
+
+		adminApi.GET("/students", statsHandler.GetTopStudents)
+		adminApi.GET("/students/:id", statsHandler.GetStudentDetails)
 	}
 
 	// Start Server

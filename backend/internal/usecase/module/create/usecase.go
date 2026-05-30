@@ -9,9 +9,10 @@ import (
 )
 
 type Input struct {
-	CourseID int
-	Title    string
-	Order    int
+	CourseID   int
+	Title      string
+	Order      int
+	WeekNumber int
 }
 
 type Usecase struct {
@@ -32,7 +33,7 @@ func NewUsecase(moduleSaver ModuleSaver) (*Usecase, error) {
 func (u *Usecase) Execute(ctx context.Context, input Input) error {
 	zap.L().Debug("CreateModule started", zap.Int("courseID", input.CourseID), zap.String("title", input.Title))
 
-	module, err := domain.NewModule(input.Title, input.CourseID, input.Order)
+	module, err := domain.NewModule(input.Title, input.CourseID, input.Order, input.WeekNumber)
 	if err != nil {
 		zap.L().Error("Failed to create module domain object", zap.Error(err))
 		return err

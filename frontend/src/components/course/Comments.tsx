@@ -79,7 +79,7 @@ export const Comments: React.FC<CommentsProps> = ({
     setValidationError(null);
 
     if (!isAuthenticated) {
-      alert('Пожалуйста, войдите в систему');
+      setValidationError('Пожалуйста, войдите в систему');
       return;
     }
 
@@ -138,7 +138,7 @@ export const Comments: React.FC<CommentsProps> = ({
     <div className="space-y-8">
 
       {/* БЛОК ВЗАИМОДЕЙСТВИЯ (Форма или Статус) */}
-      {isAuthenticated && (
+      {isAuthenticated && hasAccess && (
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
 
 
@@ -338,7 +338,7 @@ export const Comments: React.FC<CommentsProps> = ({
 
           {/* Заголовок по центру */}
           <div className="text-center">
-            <h3 className="text-2xl font-serif font-bold text-gray-900">Отзывы студентов</h3>
+            <h3 className="text-2xl font-serif font-bold text-gray-900">Отзывы клиентов</h3>
             
           </div>
 

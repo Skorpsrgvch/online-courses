@@ -41,6 +41,15 @@ func HandleError(c *gin.Context, err error) {
 
 	// Сопоставление domain-ошибок
 	switch {
+	case errors.Is(err, domain.ErrUnauthorized):
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+
+	case errors.Is(err, domain.ErrTokenExpired):
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "token expired"})
+
+	case errors.Is(err, domain.ErrTokenInvalid):
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+
 	case errors.Is(err, domain.ErrInvalidCredentials):
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Неверный email или пароль"})
 

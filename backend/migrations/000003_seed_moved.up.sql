@@ -1,0 +1,2 @@
+-- Seed data was moved to backend/seed.
+-- This no-op migration keeps existing databases with version 3 compatible.

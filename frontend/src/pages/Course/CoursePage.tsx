@@ -11,7 +11,7 @@ const CoursePage = () => {
   const courseId = Number(id);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, isAuthenticated } = useAuth();
+  const { user } = useAuth();
 
   const [courseData, setCourseData] = useState<CourseFullResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -23,10 +23,11 @@ const CoursePage = () => {
 
   const loadData = async () => {
     if (!courseId) return;
-    setIsLoading(true);
+    // Не блокируем интерфейс полностью при фоновом обновлении, если данные уже есть
+    if (!courseData) setIsLoading(true); 
     setError(null);
+    
     try {
-      // Параллельная загрузка: курс, публичные отзывы и личный отзыв
       const [courseRes, publicReviewsData, allUserReviews] = await Promise.all([
         coursesService.getCourseFull(courseId),
         reviewsService.getCourseReviews(courseId).catch(() => []),
@@ -34,10 +35,7 @@ const CoursePage = () => {
       ]);
 
       setCourseData(courseRes);
-      // Фильтруем только одобренные отзывы для публичного показа (на случай если бэкенд вернет лишнее)
       setApprovedReviews(Array.isArray(publicReviewsData) ? publicReviewsData.filter(r => r.approved) : []);
-
-      // Сохраняем личный отзыв (даже если он на модерации или отклонен)
       const userReviewForThisCourse = allUserReviews.find(r => r.course_id === courseId) || null;
       setMyReview(userReviewForThisCourse);
     } catch (err: any) {
@@ -54,17 +52,7 @@ const CoursePage = () => {
 
   // Обработка успешной оплаты и скролл
   useEffect(() => {
-    const query = new URLSearchParams(location.search);
-    const isPaymentSuccess = query.get('payment_success') === 'true';
-
     if (!isLoading && courseData) {
-      if (isPaymentSuccess) {
-        navigate(`/course/${courseId}`, { replace: true });
-        setTimeout(() => {
-          navigate(`/course/${courseId}/learn`);
-        }, 500);
-        return;
-      }
 
       const hash = location.hash;
       const timer = setTimeout(() => {
@@ -77,7 +65,7 @@ const CoursePage = () => {
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [location, isLoading, courseData, navigate]);
+  }, [location, isLoading, courseData, navigate, courseId]);
 
   const requireAuth = () => {
     if (!user) {
@@ -88,30 +76,20 @@ const CoursePage = () => {
   };
 
   const handleActionClick = async () => {
-    console.log("=== [DEBUG] handleActionClick START ===");
 
     if (!requireAuth()) {
-      console.log("[DEBUG] Auth check failed");
       return;
     }
     if (!courseData) {
-      console.log("[DEBUG] No course data");
       return;
     }
 
     const isFree = courseData.course.price === 0 || courseData.course.is_public;
-    const isPurchased = courseData.course.is_purchased;
-    const isAdmin = user?.role === 'admin';
-
-    console.log(`[DEBUG] Course Status: Price=${courseData.course.price}, IsPublic=${courseData.course.is_public}, IsPurchased=${isPurchased}, IsAdmin=${isAdmin}`);
-    console.log(`[DEBUG] Calculated isFree: ${isFree}`);
+  
 
     if (isFree && !courseData.course.is_purchased && user?.role !== 'admin') {
       try {
         setIsProcessing(true);
-        console.log('[DEBUG] Вызов enrollFree с ценой:', courseData.course.price);
-
-        // Убедитесь, что price — это число (number), а не строка
         const priceToSend = Number(courseData.course.price) || 0;
 
         await coursesService.enrollFree(courseId, priceToSend);
@@ -120,17 +98,12 @@ const CoursePage = () => {
         setIsProcessing(false);
       } catch (error: any) {
         console.error("Ошибка при зачислении:", error);
-        // Логи ошибки помогут понять, если проблема в сети или правах доступа
-        alert("Не удалось оформить доступ.");
+        setError("Не удалось оформить доступ.");
         setIsProcessing(false);
         return;
       }
-    } else {
-      console.log("[DEBUG] Skipping enrollment (already purchased or paid course).");
-    }
+    } 
 
-    // Переход к обучению
-    console.log(`[DEBUG] Navigating to /course/${courseId}/learn`);
     navigate(`/course/${courseId}/learn`);
   };
 
@@ -141,7 +114,7 @@ const CoursePage = () => {
 
     setIsProcessing(true);
     try {
-      const returnUrl = `${window.location.origin}/course/${courseId}?payment_success=true`;
+      const returnUrl = `${window.location.origin}/course/${courseId}/payment-success`;
       const paymentData: PaymentResponse = await coursesService.createPayment(courseId, returnUrl);
 
       if (paymentData.confirmation_url) {
@@ -158,7 +131,7 @@ const CoursePage = () => {
       } else if (error.message) {
         errorMsg = error.message;
       }
-      alert(errorMsg);
+      setError(errorMsg);
       setIsProcessing(false);
     }
   };
@@ -315,7 +288,7 @@ const CoursePage = () => {
                 {isProcessing ? 'Обработка...' : buttonProps.text}
               </button>
             </div>
-            <div className="order-1 lg:order-2 relative rounded-2xl! overflow-hidden shadow-2xl aspect-video lg:aspect-square max-h-125 bg-gray-100">
+            <div className="order-1 lg:order-2 relative rounded-2xl! overflow-hidden shadow-2xl aspect-video max-h-125 bg-gray-100">
               {course.cover_image_url ? (
                 <img src={course.cover_image_url} alt={course.title} className="w-full h-full object-cover" />
               ) : (
@@ -397,7 +370,7 @@ const CoursePage = () => {
 
         <section id="reviews" className="pt-8 border-t border-gray-200 scroll-mt-24">
           <div className="flex items-center gap-3 mb-8">
-            <h3 className="text-2xl font-serif font-bold text-gray-900">Отзывы студентов</h3>
+            <h3 className="text-2xl font-serif font-bold text-gray-900">Отзывы клиентов</h3>
           </div>
           <Comments
             courseId={courseId}

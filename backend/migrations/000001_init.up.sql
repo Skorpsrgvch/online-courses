@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS modules (
     course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     "order" INTEGER NOT NULL DEFAULT 0,
+    week_number INTEGER NOT NULL DEFAULT 1,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -83,6 +84,7 @@ CREATE TABLE IF NOT EXISTS user_purchases (
 CREATE TABLE IF NOT EXISTS user_progress (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     lesson_id INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+    started_at TIMESTAMP WITH TIME ZONE,
     completed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     PRIMARY KEY (user_id, lesson_id)
 );

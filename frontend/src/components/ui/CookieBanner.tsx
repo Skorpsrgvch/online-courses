@@ -7,10 +7,9 @@ export const CookieBanner: React.FC = () => {
 
   if (cookiesAccepted) return null;
 
-  const handleAccept = (selected: typeof preferences) => {
+  const handleAccept = (_selected: typeof preferences) => {
     setCookiesAccepted(true);
     // Здесь можно инициировать загрузку скриптов аналитики
-    console.log('Cookie preferences:', selected);
   };
 
   return (

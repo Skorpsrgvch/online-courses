@@ -9,18 +9,49 @@ export const PaymentSuccessPage = () => {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-  const timer = setTimeout(() => {
-    // Вместо navigate используем window.location.href для полной перезагрузки страницы
-    // Это гарантирует, что все интерцепторы и стейт авторизации инициализируются заново
-    if (id) {
-      window.location.href = `/course/${id}`; 
-    } else {
-      window.location.href = '/dashboard';
-    }
-  }, 2000); // Даем 2 секунды на показ сообщения
+    if (!id) return;
 
-  return () => clearTimeout(timer);
-}, [id]);
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    const verifyPayment = async () => {
+      try {
+        const data = await coursesService.getCourseFull(Number(id));
+
+        const hasAccess =
+          data.course.is_purchased &&
+          data.is_access_expired !== true;
+
+        if (hasAccess) {
+          setSuccess(true);
+          setIsVerifying(false);
+          return;
+        }
+
+        attempts += 1;
+
+        if (attempts >= maxAttempts) {
+          setSuccess(false);
+          setIsVerifying(false);
+          return;
+        }
+
+        setTimeout(verifyPayment, 1500);
+      } catch (error) {
+        attempts += 1;
+
+        if (attempts >= maxAttempts) {
+          setSuccess(false);
+          setIsVerifying(false);
+          return;
+        }
+
+        setTimeout(verifyPayment, 1500);
+      }
+    };
+
+    verifyPayment();
+  }, [id]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -42,9 +73,9 @@ export const PaymentSuccessPage = () => {
             <p className="text-gray-600 mb-6">Доступ к курсу открыт. Перенаправляем к обучению...</p>
             <button
               onClick={() => id && navigate(`/course/${id}/learn`)}
-              className="px-6 py-3 bg-rose-500 text-white rounded-xl hover:bg-rose-600 transition-colors font-medium"
+              className="px-6 py-3 bg-rose-500 text-white rounded-2xl! hover:bg-rose-600 transition-colors font-medium"
             >
-              Перейти к урокам
+              Перейти к обучению
             </button>
           </>
         ) : (

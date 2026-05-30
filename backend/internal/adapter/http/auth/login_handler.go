@@ -1,7 +1,11 @@
 package auth
 
 import (
+	"context"
 	"net/http"
+	"os"
+	"strings"
+	"time"
 
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/middleware"
@@ -16,11 +20,16 @@ type loginRequest struct {
 }
 
 type LoginHandler struct {
-	usecase *loginUC.Usecase
+	usecase      *loginUC.Usecase
+	refreshStore refreshTokenStore
 }
 
-func NewLoginHandler(usecase *loginUC.Usecase) *LoginHandler {
-	return &LoginHandler{usecase: usecase}
+type refreshTokenStore interface {
+	Save(ctx context.Context, userID int, token string, expiresAt time.Time) error
+}
+
+func NewLoginHandler(usecase *loginUC.Usecase, refreshStore refreshTokenStore) *LoginHandler {
+	return &LoginHandler{usecase: usecase, refreshStore: refreshStore}
 }
 
 func (h *LoginHandler) Handle(c *gin.Context) {
@@ -57,6 +66,25 @@ func (h *LoginHandler) Handle(c *gin.Context) {
 		common.HandleError(c, err)
 		return
 	}
+
+	if h.refreshStore != nil {
+		if err := h.refreshStore.Save(c.Request.Context(), output.User.ID, refreshToken, time.Now().UTC().Add(7*24*time.Hour)); err != nil {
+			zap.L().Error("Failed to persist refresh token", zap.Error(err))
+			common.HandleError(c, err)
+			return
+		}
+	}
+
+	secureCookie := strings.HasPrefix(strings.ToLower(os.Getenv("FRONTEND_URL")), "https://")
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    refreshToken,
+		Path:     "/",
+		MaxAge:   int((7 * 24 * time.Hour).Seconds()),
+		HttpOnly: true,
+		Secure:   secureCookie,
+		SameSite: http.SameSiteLaxMode,
+	})
 
 	zap.L().Info("Login successful", zap.Int("userID", output.User.ID), zap.String("email", req.Email))
 

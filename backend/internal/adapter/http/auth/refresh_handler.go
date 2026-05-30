@@ -2,6 +2,8 @@ package auth
 
 import (
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/common"
@@ -35,15 +37,28 @@ func (h *RefreshHandler) Handle(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie(
-		"refresh_token",
-		output.RefreshToken,
-		int(7*24*time.Hour.Seconds()),
-		"/",
-		"",
-		false, // Secure: false для локальной разработки, true для prod (HTTPS)
-		true,  // HttpOnly
-	)
+	secureCookie := strings.HasPrefix(strings.ToLower(os.Getenv("FRONTEND_URL")), "https://")
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    output.RefreshToken,
+		Path:     "/",
+		MaxAge:   int((7 * 24 * time.Hour).Seconds()),
+		HttpOnly: true,
+		Secure:   secureCookie,
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	/*
+		c.SetCookie(
+			"refresh_token",
+			output.RefreshToken,
+			int(7*24*time.Hour.Seconds()),
+			"/",
+			"",
+			false, // Secure: false для локальной разработки, true для prod (HTTPS)
+			true,  // HttpOnly
+		)
+	*/
 
 	c.JSON(http.StatusOK, gin.H{
 		"access_token": output.AccessToken,

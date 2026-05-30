@@ -11,9 +11,10 @@ import (
 )
 
 type moduleDTO struct {
-	ID    int    `json:"id"`
-	Title string `json:"title"`
-	Order int    `json:"order"`
+	ID         int    `json:"id"`
+	Title      string `json:"title"`
+	Order      int    `json:"order"`
+	WeekNumber int    `json:"week_number"`
 }
 
 type GetHandler struct {
@@ -45,9 +46,10 @@ func (h *GetHandler) Handle(c *gin.Context) {
 	modules := make([]moduleDTO, 0, len(output.Modules))
 	for _, m := range output.Modules {
 		modules = append(modules, moduleDTO{
-			ID:    m.ID,
-			Title: m.Title,
-			Order: m.Order,
+			ID:         m.ID,
+			Title:      m.Title,
+			Order:      m.Order,
+			WeekNumber: m.WeekNumber,
 		})
 	}
 

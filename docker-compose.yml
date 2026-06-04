@@ -35,8 +35,8 @@ services:
       SMTP_PASS: ${SMTP_PASS}
       SMTP_FROM: ${EMAIL_FROM}
       FRONTEND_URL: ${FRONTEND_URL}
-    ports:
-      - "8080:8080"
+    expose:
+    - "8080"
     env_file:
       - .env
     depends_on:
@@ -67,13 +67,30 @@ services:
       context: .
       dockerfile: Dockerfile.frontend
     container_name: online-courses-frontend
-    ports:
-      - "3000:80"
+    expose:
+    - "80"
     depends_on:
       - backend
     networks:
       - app-network
+  
 
+  caddy:
+    image: caddy:2
+    container_name: online-courses-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./backend/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - app-network
 
 networks:
   app-network:
@@ -81,3 +98,5 @@ networks:
 
 volumes:
   pgdata:
+  caddy-data:
+  caddy-config:

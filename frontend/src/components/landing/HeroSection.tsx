@@ -49,7 +49,7 @@ const openServices = () => {
 
                 className="px-8 py-4 text-lg rounded-2xl! shadow-lg shadow-rose-200 hover:shadow-rose-300 hover:-translate-y-1 transition-all duration-300"
               >
-                Начать обучение
+                Подробнее об обучении
               </Button>
 
               {/* Кнопка записи */}

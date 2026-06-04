@@ -75,38 +75,30 @@ apiClient.interceptors.response.use(
                           originalRequest?.url?.includes('/auth/register');
 
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isAuthRequest) {
-      // Если нет access token в localStorage, пробуем обновить через куки
-      if (!getAccessToken()) {
-          if (isRefreshing) {
-             return new Promise((resolve, reject) => {
-                failedQueue.push({ resolve, reject });
-             }).then(() => apiClient(originalRequest));
-          }
-          
-          originalRequest._retry = true;
-          isRefreshing = true;
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(() => apiClient(originalRequest));
+      }
 
-          try {
-            await authService.refreshToken();
-            processQueue(null);
-            const newToken = getAccessToken();
-            if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${newToken}`;
-            }
-            return apiClient(originalRequest);
-          } catch (refreshError) {
-            processQueue(refreshError);
-            authService.clearTokens();
-            window.location.href = '/login?reason=session_expired';
-            return Promise.reject(refreshError);
-          } finally {
-            isRefreshing = false;
-          }
-      } else {
-          // Токен есть, но он протух или неверен - просто чистим и редиректим
-          authService.clearTokens();
-          window.location.href = '/login?reason=session_expired';
-          return Promise.reject(error);
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        await authService.refreshToken();
+        processQueue(null);
+        const newToken = getAccessToken();
+        if (newToken && originalRequest.headers) {
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        }
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError);
+        authService.clearTokens();
+        window.location.href = '/login?reason=session_expired';
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
     const serverMessage = (error.response?.data as any)?.message || 
@@ -118,7 +110,7 @@ apiClient.interceptors.response.use(
       return Promise.reject(new Error(serverMessage));
     }
 
-    // Если ошибки сети (нет ответа от сервера)
+    // Если ошибка сети (нет ответа от сервера)
     return Promise.reject(new Error('Нет соединения с сервером'));
   }
 );

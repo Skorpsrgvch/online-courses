@@ -7,7 +7,7 @@ WHERE email IN (
     'user2@test.ru',
     'user3@test.ru',
     'user4@test.ru',
-    'user@test.ru' -- На случай старых данных
+    'user@test.ru'
 );
 
 DELETE FROM courses

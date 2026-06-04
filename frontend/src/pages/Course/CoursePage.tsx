@@ -31,7 +31,7 @@ const CoursePage = () => {
       const [courseRes, publicReviewsData, allUserReviews] = await Promise.all([
         coursesService.getCourseFull(courseId),
         reviewsService.getCourseReviews(courseId).catch(() => []),
-        reviewsService.getMyReviews().catch(() => [])
+        user ? reviewsService.getMyReviews().catch(() => []) : Promise.resolve([])
       ]);
 
       setCourseData(courseRes);
@@ -48,7 +48,7 @@ const CoursePage = () => {
 
   useEffect(() => {
     loadData();
-  }, [courseId]);
+  }, [courseId, user?.id]);
 
   // Обработка успешной оплаты и скролл
   useEffect(() => {

@@ -7,14 +7,17 @@ import { renderParsedText } from '../../utils/textParser';
 const ServicesPage: React.FC = () => {
     const [services, setServices] = useState<Service[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const loadServices = async () => {
             try {
                 const data = await servicesService.getAll();
                 setServices(data);
+                setError(null);
             } catch (error) {
                 console.error('Ошибка загрузки услуг:', error);
+                setError('Не удалось загрузить список услуг');
             } finally {
                 setIsLoading(false);
             }
@@ -53,7 +56,25 @@ const ServicesPage: React.FC = () => {
     if (isLoading) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-rose-500"></div>
+                <div className="text-center">
+                    <div className="w-12 h-12 border-4 border-rose-300 border-t-rose-500 rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-gray-500">Загрузка услуг...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-center bg-white p-8 rounded-xl shadow-sm max-w-md">
+                    <h2 className="text-xl font-semibold text-red-600 mb-2">Ошибка</h2>
+                    <p className="text-gray-600 mb-4">{error}</p>
+                    <Link to="/" className="inline-flex items-start text-sm md:text-base lg:text-base font-medium text-gray-500! hover:text-rose-500! mb-4 transition-colors"
+                        style={{ textDecoration: 'none' }}>
+                        ← Назад на главную
+                    </Link>
+                </div>
             </div>
         );
     }
@@ -61,7 +82,7 @@ const ServicesPage: React.FC = () => {
     return (
         <div className="min-h-screen bg-gray-50 py-12">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <Link to="/#courses" className="inline-flex items-start text-sm md:text-base lg:text-base font-medium text-gray-500! hover:text-rose-500! mb-4 transition-colors"
+                <Link to="/" className="inline-flex items-start text-sm md:text-base lg:text-base font-medium text-gray-500! hover:text-rose-500! mb-4 transition-colors"
                     style={{ textDecoration: 'none' }}>
                     ← Назад на главную
                 </Link>

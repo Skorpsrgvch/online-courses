@@ -46,7 +46,9 @@ export const Header: React.FC = () => {
     { name: 'О специалисте', href: '/#about' },
     { name: 'Услуги', href: '/services' },
     { name: 'Курсы', href: '/courses' },
+    { name: 'Квалификация', href: '/qualifications' },
     { name: 'Контакты', href: '/#footer' },
+
   ];
 
   return (

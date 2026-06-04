@@ -11,6 +11,7 @@ import RegisterPage from './pages/Auth/RegisterPage';
 import PasswordRecoveryPage from './pages/Auth/PasswordRecoveryPage';
 import DashboardPage from './pages/Dashboard/DashboardPage';
 import CoursePage from './pages/Course/CoursePage';
+import QualificationsPage from './pages/Qualifications/QualificationsPage';
 import LearnPage from './pages/Course/LearnPage';
 import AllCoursesPage from './pages/Course/AllCoursesPage';
 
@@ -27,7 +28,7 @@ import ConsentPage from './pages/Policy/ConsentPage';
 import OfferPage from './pages/Policy/OfferPage';
 
 
-// Компонент для перенаправления на главную (должен быть объявлен ДО использования)
+
 const NavigateToHome = () => {
   const navigate = useNavigate();
 
@@ -50,8 +51,9 @@ const router = createBrowserRouter([
       { path: 'courses', element: <AllCoursesPage /> },
       { path: 'services', element: <ServicesPage /> },
       { path: "privacy-policy", element: <PrivacyPolicyPage /> },
-      { path: "privacy-policy", element: <ConsentPage /> },
-      { path: "privacy-policy", element: <OfferPage /> },
+      { path: "consent", element: <ConsentPage /> },
+      { path: "offer", element: <OfferPage /> },
+      { path: "qualifications", element: <QualificationsPage /> },
       
       {
         path: 'dashboard',

@@ -98,7 +98,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
-	"golang.org/x/time/rate"
 )
 
 func main() {
@@ -518,7 +517,7 @@ func main() {
 	})
 	// Public Auth
 	authGroup := r.Group("/api/auth")
-	authGroup.Use(middleware.RateLimitMiddleware(rate.Every(1*time.Second), 5))
+	//authGroup.Use(middleware.RateLimitMiddleware(rate.Every(1*time.Second), 5))
 	{
 		authGroup.POST("/register", registerHandler.Handle)
 		authGroup.POST("/login", loginHandler.Handle)

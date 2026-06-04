@@ -52,7 +52,10 @@ const AllCoursesPage: React.FC = () => {
         <div className="text-center bg-white p-8 rounded-xl shadow-sm max-w-md">
           <h2 className="text-xl font-semibold text-red-600 mb-2">Ошибка</h2>
           <p className="text-gray-600 mb-4">{error}</p>
-          <Link to="/" className="text-rose-500! hover:underline" style={{ textDecoration: 'none' }}>Вернуться на главную</Link>
+          <Link to="/" className="inline-flex items-start text-sm md:text-base lg:text-base font-medium text-gray-500! hover:text-rose-500! mb-4 transition-colors"
+                              style={{ textDecoration: 'none' }}>
+                              ← Назад на главную
+                          </Link>
         </div>
       </div>
     );

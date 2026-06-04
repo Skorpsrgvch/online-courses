@@ -10,11 +10,11 @@ import (
 	"go.uber.org/zap"
 )
 
-// Интервал открытия модулей в тестовом режиме (5 минут)
-const testModuleInterval = 5 * time.Minute
+// Интервал открытия модулей (1 неделя)
+const testModuleInterval = 7 * 24 * time.Hour
 
-// Срок доступа к курсу (1 год)
-const accessDuration = 365 * 24 * time.Hour
+// Срок доступа к курсу
+const accessDuration = 150 * 24 * time.Hour
 
 type Input struct {
 	CourseID int
@@ -132,21 +132,11 @@ func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
 			return nil, err
 		}
 
-		// Если покупки нет, но курс бесплатный (или публичный) -> автоматически зачисляем
-		if !purchased && (course.IsPublic || course.Price == 0) {
-			zap.L().Info("Auto-enrolling user to free/public course", zap.Int("userID", input.UserID), zap.Int("courseID", course.ID))
-			// Игнорируем ошибку, если запись уже есть (конфликт уникальности)
-			_ = u.enroller.EnrollFree(ctx, input.UserID, course.ID, course.Price)
-
-			// Пробуем проверить покупку снова (теперь она должна быть)
-			purchased = true
-		}
-
 		if purchased {
 			date, err := u.purchaseChecker.GetPurchaseDate(ctx, input.UserID, course.ID)
 			if err != nil {
 				zap.L().Error("Failed to get purchase date", zap.Error(err))
-				// Если ошибка получения даты, но покупка есть - даем доступ (fallback)
+				// Если ошибка получения даты, но покупка есть, даем доступ
 				isPurchased = true
 				hasFullAccess = true
 			} else {
@@ -178,13 +168,9 @@ func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
 		}
 	}
 
-	// 2. Если нет полного доступа, проверяем права (бесплатный курс или админ)
-	// Этот блок теперь сработает только если авто-зачисление не прошло или курс не бесплатный
+	// 2. Если нет полного доступа, проверяем роль администратора
 	if !hasFullAccess {
-		if course.IsPublic {
-			hasFullAccess = true
-			zap.L().Debug("Access granted via public course flag (fallback)", zap.Int("courseID", course.ID))
-		} else if input.Role == "admin" {
+		if input.Role == "admin" {
 			hasFullAccess = true
 			zap.L().Debug("Access granted via admin role", zap.Int("userID", input.UserID))
 		} else {
@@ -213,7 +199,7 @@ func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
 
 		isBonus := false
 		titleLower := strings.ToLower(m.Title)
-		if strings.Contains(titleLower, "бонус") {
+		if strings.Contains(titleLower, "бонусы") {
 			isBonus = true
 		}
 

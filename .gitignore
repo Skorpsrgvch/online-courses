@@ -10,3 +10,7 @@ dist/
 backend/.gocache/
 frontend/dist/
 node_modules/
+
+# Test and load-testing artifacts
+backend/testdata/
+k6/

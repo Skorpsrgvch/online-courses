@@ -133,7 +133,8 @@ export const Footer: React.FC = () => {
                 { name: 'Главная', href: '/' },
                 { name: 'О специалисте', href: '/#about' },
                 { name: 'Услуги', href: '/services' },
-                { name: 'Курсы', href: '/courses' }
+                { name: 'Курсы', href: '/courses' },
+                { name: 'Квалификация', href: '/qualifications' }
               ].map((link) => (
                 <li key={link.name}>
                   <a
@@ -190,20 +191,22 @@ export const Footer: React.FC = () => {
             <h3 className="text-white font-semibold mb-6 pb-3 uppercase tracking-wider text-sm">Документы</h3>
             <ul className="space-y-3 text-sm pl-0 -ml-7">
               {[
-                { name: 'privacy', label: 'Политика обработки персональных данных' },
-                { name: 'consent', label: 'Согласие на обработку ПДн' },
-                { name: 'offer', label: 'Договор оферты' },
-                { name: 'terms', label: 'Пользовательское соглашение' },
-                { name: 'ads', label: 'Согласие на рассылку' }
-              ].map((doc) => (
-                <li key={doc.name}>
-                  <button
-                    onClick={() => openModal(doc.name)}
+                { name: 'Политика обработки персональных данных', href: '/privacy-policy' },
+                { name: 'Согласие на обработку ПДн', href: '/consent' },
+                { name: 'Договор оферты', href: '/offer' },
+                { name: 'Пользовательское соглашение', href: '/' },
+                { name: 'Согласие на рассылку', href: '/' }
+              ].map((link) => (
+                <li key={link.name}>
+                  <a
+                    href={link.href}
+                    onClick={() => openModal(link.name)}
                     className="text-white hover:text-rose-400! transition-colors text-left w-full focus:outline-none focus:text-rose-400"
+                    style={{ textDecoration: 'none' }}
                     tabIndex={activeModal ? -1 : 0}
                   >
-                    {doc.label}
-                  </button>
+                    {link.name}
+                  </a>
                 </li>
               ))}
             </ul>

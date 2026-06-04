@@ -3,6 +3,7 @@ package register
 import (
 	"context"
 	"errors"
+	"net/mail"
 	"strings"
 
 	"github.com/Skorpsrgvch/online-courses/internal/domain"
@@ -35,9 +36,24 @@ func NewUsecase(userCreator UserCreator) (*Usecase, error) {
 func (u *Usecase) Execute(ctx context.Context, input Input) error {
 	zap.L().Info("Registration attempt", zap.String("email", input.Email), zap.String("role", input.Role))
 
-	if input.Email == "" || input.FullName == "" || input.Password == "" {
+	email := strings.ToLower(strings.TrimSpace(input.Email))
+	fullName := strings.TrimSpace(input.FullName)
+	password := strings.TrimSpace(input.Password)
+
+	if email == "" || fullName == "" || password == "" {
 		zap.L().Warn("Registration failed: missing fields")
 		return domain.ErrInvalidCredentials
+	}
+
+	parsedEmail, err := mail.ParseAddress(email)
+	if err != nil || parsedEmail.Address != email || strings.ContainsAny(email, " \t\r\n") {
+		zap.L().Warn("Registration failed: invalid email", zap.String("email", input.Email))
+		return errors.New("укажите корректный email")
+	}
+
+	if len(password) < 6 {
+		zap.L().Warn("Registration failed: weak password")
+		return errors.New("пароль должен быть не короче 6 символов")
 	}
 
 	if input.Role != "user" && input.Role != "admin" {
@@ -45,13 +61,13 @@ func (u *Usecase) Execute(ctx context.Context, input Input) error {
 		return errors.New("invalid role")
 	}
 
-	user, err := domain.NewUser(input.Email, input.FullName, input.Role)
+	user, err := domain.NewUser(email, fullName, input.Role)
 	if err != nil {
 		zap.L().Error("Domain validation failed", zap.Error(err))
 		return err
 	}
 
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		zap.L().Error("Password hashing failed", zap.Error(err))
 		return errors.New("failed to hash password")

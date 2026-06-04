@@ -179,6 +179,7 @@ const LearnPage = () => {
     ? (selectedLesson.moduleIdx === courseData.modules.length - 1 &&
       selectedLesson.lessonIdx === courseData.modules[courseData.modules.length - 1].lessons.length - 1)
     : false;
+  const isCourseCompleted = progressStats.total > 0 && progressStats.completed === progressStats.total;
 
 
   const showLockInfo = (module: FullCourseModule) => {
@@ -606,10 +607,15 @@ const LearnPage = () => {
                         <span className="hidden sm:inline">Следующий урок</span><span className="sm:hidden">Далее</span>
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
                       </button>
-                    ) : (
+                    ) : isCourseCompleted ? (
                       <button onClick={() => setShowCompletionModal(true)} className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-medium transition-colors shadow-md hover:shadow-lg hover:-translate-y-0.5 flex items-center gap-2">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         Завершить курс
+                      </button>
+                    ) : (
+                      <button disabled className="px-6 py-2.5 bg-gray-200 text-gray-500 rounded-2xl font-medium cursor-not-allowed flex items-center gap-2">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        Завершить курс после 100%
                       </button>
                     )}
                   </div>

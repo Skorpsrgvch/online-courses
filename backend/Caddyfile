@@ -10,33 +10,18 @@
     }
 }
 
-
-http://localhost {
-    handle /api/* {
-        reverse_proxy backend:8080
-    }
-    handle {
-        reverse_proxy frontend:80
-    }
-}
-
-# В docker-compose нужно будет передать: DOMAIN=mysite.ru
-{$DOMAIN:80} {
-
-    # Security Headers для всего сайта
+{$DOMAIN:olga-pimchenko.ru} {
     header {
         X-Frame-Options "SAMEORIGIN"
         X-Content-Type-Options "nosniff"
         Referrer-Policy "strict-origin-when-cross-origin"
     }
-
-    # API запросы -> Бэкенд
-    handle /api/* {
+    
+    route /api/* {
         reverse_proxy backend:8080
     }
-
-    # Всё остальное -> Фронтенд (Nginx)
-    handle {
+    
+    route {
         reverse_proxy frontend:80
     }
 }

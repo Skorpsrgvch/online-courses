@@ -75,6 +75,7 @@ services:
       - ./backend/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+      - /etc/letsencrypt/:/etc/letsencrypt/:ro
     depends_on:
       - backend
 

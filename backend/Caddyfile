@@ -10,7 +10,10 @@
     }
 }
 
-{$DOMAIN:olga-pimchenko.ru} {
+olga-pimchenko.ru {
+
+    tls /etc/letsencrypt/live/olga-pimchenko.ru/fullchain.pem /etc/letsencrypt/live/olga-pimchenko.ru/privkey.pem
+
     header {
         X-Frame-Options "SAMEORIGIN"
         X-Content-Type-Options "nosniff"

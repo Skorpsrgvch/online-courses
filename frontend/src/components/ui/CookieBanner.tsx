@@ -9,37 +9,39 @@ export const CookieBanner: React.FC = () => {
 
   const handleAccept = (_selected: typeof preferences) => {
     setCookiesAccepted(true);
-    // Здесь можно инициировать загрузку скриптов аналитики
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg z-40 transform transition-transform duration-300">
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-        <p className="text-sm text-gray-600">
-          Мы используем cookie для улучшения работы сайта. Вы можете выбрать категории или принять все.
+    <div className="fixed inset-x-0 bottom-0 z-40 max-h-[85vh] overflow-y-auto border-t border-gray-200 bg-white p-3 shadow-lg transition-transform duration-300 sm:p-4">
+      <div className="mx-auto flex max-w-7xl flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
+        <p className="text-sm leading-relaxed text-gray-600 md:max-w-3xl">
+          Мы используем cookie для улучшения работы сайта. Вы можете выбрать категории или принять все.{' '}
+          <a href="/cookies" className="font-medium text-rose-600 hover:underline">
+            Подробнее о cookie
+          </a>
         </p>
-        <div className="flex gap-2">
-          <button 
+
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 md:flex md:shrink-0">
+          <button
             onClick={() => handleAccept({ necessary: true, analytics: false, marketing: false })}
-            className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+            className="min-h-10 rounded border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
           >
             Только необходимые
           </button>
-          <button 
+          <button
             onClick={() => handleAccept(preferences)}
-            className="px-4 py-2 text-sm bg-rose-500 text-white rounded hover:bg-rose-600"
+            className="min-h-10 rounded bg-rose-500 px-3 py-2 text-sm font-medium text-white hover:bg-rose-600"
           >
             Принять выбранные
           </button>
-          <button 
+          <button
             onClick={() => handleAccept({ necessary: true, analytics: true, marketing: true })}
-            className="px-4 py-2 text-sm bg-gray-800 text-white rounded hover:bg-gray-900"
+            className="min-h-10 rounded bg-gray-800 px-3 py-2 text-sm font-medium text-white hover:bg-gray-900"
           >
             Принять все
           </button>
         </div>
       </div>
-      {/* Чекбоксы настроек можно вынести в модальное окно при клике на "Настройки" */}
     </div>
   );
 };

@@ -542,7 +542,7 @@ func main() {
 
 	// Protected user API
 	protectedApi := r.Group("/api")
-	protectedApi.Use(middleware.AuthMiddleware(), middleware.RequireAuthMiddleware())
+	protectedApi.Use(middleware.AuthMiddleware(), middleware.RequireAuthMiddleware(), middleware.LoadUserMiddleware(userRepo))
 	{
 		protectedApi.GET("/auth/me", auth.NewMeHandler().Handle)
 		protectedApi.POST("/auth/logout", logoutHandler.Handle)
@@ -566,7 +566,7 @@ func main() {
 
 	// Admin API
 	adminApi := r.Group("/api/admin")
-	adminApi.Use(middleware.AuthMiddleware(), middleware.RequireAdminMiddleware())
+	adminApi.Use(middleware.AuthMiddleware(), middleware.RequireAuthMiddleware(), middleware.LoadUserMiddleware(userRepo), middleware.RequireAdminMiddleware())
 	{
 		adminApi.POST("/users/search", searchUsersHandler.Handle)
 		adminApi.POST("/access", accessHandler.Handle)

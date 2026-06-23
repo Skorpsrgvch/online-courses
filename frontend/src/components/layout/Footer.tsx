@@ -194,13 +194,12 @@ export const Footer: React.FC = () => {
                 { name: 'Политика обработки персональных данных', href: '/privacy-policy' },
                 { name: 'Согласие на обработку ПДн', href: '/consent' },
                 { name: 'Договор оферты', href: '/offer' },
-                { name: 'Пользовательское соглашение', href: '/' },
-                { name: 'Согласие на рассылку', href: '/' }
+                { name: 'Пользовательское соглашение', href: '/terms' },
+                { name: 'Cookie', href: '/cookies' }
               ].map((link) => (
                 <li key={link.name}>
                   <a
                     href={link.href}
-                    onClick={() => openModal(link.name)}
                     className="text-white hover:text-rose-400! transition-colors text-left w-full focus:outline-none focus:text-rose-400"
                     style={{ textDecoration: 'none' }}
                     tabIndex={activeModal ? -1 : 0}
@@ -289,23 +288,6 @@ export const Footer: React.FC = () => {
         </form>
       </Modal>
 
-      <Modal isOpen={activeModal === 'privacy'} onClose={closeModal} title="Политика обработки персональных данных">
-        <div className="prose prose-sm max-w-none text-gray-600">
-          <p>Здесь должен быть полный текст политики конфиденциальности в соответствии с ФЗ-152...</p>
-        </div>
-      </Modal>
-      <Modal isOpen={activeModal === 'consent'} onClose={closeModal} title="Согласие на обработку ПДн">
-        <p className="text-gray-600">Текст согласия на обработку персональных данных...</p>
-      </Modal>
-      <Modal isOpen={activeModal === 'offer'} onClose={closeModal} title="Договор оферты">
-        <p className="text-gray-600">Текст договора публичной оферты...</p>
-      </Modal>
-      <Modal isOpen={activeModal === 'terms'} onClose={closeModal} title="Пользовательское соглашение">
-        <p className="text-gray-600">Текст пользовательского соглашения...</p>
-      </Modal>
-      <Modal isOpen={activeModal === 'ads'} onClose={closeModal} title="Согласие на рассылку">
-        <p className="text-gray-600">Условия получения рекламных и информационных рассылок...</p>
-      </Modal>
     </footer>
   );
 };

@@ -26,6 +26,8 @@ import StudentDetailPage from './pages/Admin/StudentDetailPage';
 import PrivacyPolicyPage from './pages/Policy/PrivacyPolicyPage';
 import ConsentPage from './pages/Policy/ConsentPage';
 import OfferPage from './pages/Policy/OfferPage';
+import TermsPage from './pages/Policy/TermsPage';
+import CookiesPage from './pages/Policy/CookiesPage';
 
 
 
@@ -53,6 +55,8 @@ const router = createBrowserRouter([
       { path: "privacy-policy", element: <PrivacyPolicyPage /> },
       { path: "consent", element: <ConsentPage /> },
       { path: "offer", element: <OfferPage /> },
+      { path: "terms", element: <TermsPage /> },
+      { path: "cookies", element: <CookiesPage /> },
       { path: "qualifications", element: <QualificationsPage /> },
       
       {

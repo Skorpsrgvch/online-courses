@@ -1,11 +1,16 @@
 package middleware
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
 	"os"
 
+	"github.com/Skorpsrgvch/online-courses/internal/domain"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap"
@@ -16,6 +21,9 @@ const (
 	RoleKey   = "role"
 	EmailKey  = "email"
 	NameKey   = "name"
+
+	AccessTokenType  = "access"
+	RefreshTokenType = "refresh"
 )
 
 var jwtSecret []byte
@@ -34,7 +42,12 @@ type Claims struct {
 	Email  string `json:"email"`
 	Name   string `json:"name"`
 	Role   string `json:"role"`
+	Type   string `json:"type"`
 	jwt.RegisteredClaims
+}
+
+type UserReader interface {
+	GetUserByID(ctx context.Context, id int) (*domain.User, error)
 }
 
 func GenerateToken(userID int, email, name, role string) (accessToken, refreshToken string, err error) {
@@ -45,6 +58,7 @@ func GenerateToken(userID int, email, name, role string) (accessToken, refreshTo
 		Email:  email,
 		Name:   name,
 		Role:   role,
+		Type:   AccessTokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(15 * time.Minute)),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -60,6 +74,7 @@ func GenerateToken(userID int, email, name, role string) (accessToken, refreshTo
 
 	refreshClaims := Claims{
 		UserID: userID,
+		Type:   RefreshTokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(7 * 24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -78,6 +93,9 @@ func GenerateToken(userID int, email, name, role string) (accessToken, refreshTo
 
 func ParseToken(tokenString string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
 		return jwtSecret, nil
 	})
 	if err != nil {
@@ -119,11 +137,50 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		if claims.Type != AccessTokenType {
+			zap.L().Info("Invalid token type for access middleware", zap.String("type", claims.Type))
+			c.JSON(401, gin.H{"error": "неверный тип токена"})
+			c.Abort()
+			return
+		}
+
 		c.Set(UserIDKey, claims.UserID)
 		c.Set(RoleKey, claims.Role)
 		c.Set(EmailKey, claims.Email)
 		c.Set(NameKey, claims.Name)
 
+		c.Next()
+	}
+}
+
+// LoadUserMiddleware обновляет данные пользователя в контексте из БД.
+func LoadUserMiddleware(userReader UserReader) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := GetUserID(c)
+		if userID == 0 {
+			c.Next()
+			return
+		}
+
+		user, err := userReader.GetUserByID(c.Request.Context(), userID)
+		if err != nil {
+			if errors.Is(err, domain.ErrUserNotFound) {
+				zap.L().Warn("Authenticated user not found", zap.Int("user_id", userID))
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "пользователь не найден"})
+				c.Abort()
+				return
+			}
+
+			zap.L().Error("Failed to load authenticated user", zap.Int("user_id", userID), zap.Error(err))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "ошибка загрузки пользователя"})
+			c.Abort()
+			return
+		}
+
+		c.Set(UserIDKey, user.ID)
+		c.Set(RoleKey, user.Role)
+		c.Set(EmailKey, user.Email)
+		c.Set(NameKey, user.Name)
 		c.Next()
 	}
 }

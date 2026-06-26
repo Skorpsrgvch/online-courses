@@ -26,6 +26,7 @@ import (
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/http/user"
 	"github.com/Skorpsrgvch/online-courses/internal/adapter/postgres"
 	"github.com/Skorpsrgvch/online-courses/pkg/db"
+	"golang.org/x/time/rate"
 
 	// Auth UseCases
 	forgotPassword "github.com/Skorpsrgvch/online-courses/internal/usecase/auth/forgotpassword"
@@ -517,7 +518,7 @@ func main() {
 	})
 	// Public Auth
 	authGroup := r.Group("/api/auth")
-	//authGroup.Use(middleware.RateLimitMiddleware(rate.Every(1*time.Second), 5))
+	authGroup.Use(middleware.RateLimitMiddleware(rate.Every(1*time.Second), 5))
 	{
 		authGroup.POST("/register", registerHandler.Handle)
 		authGroup.POST("/login", loginHandler.Handle)

@@ -16,7 +16,7 @@ export const CookieBanner: React.FC = () => {
       <div className="mx-auto flex max-w-7xl flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
         <p className="text-sm leading-relaxed text-gray-600 md:max-w-3xl">
           Мы используем cookie для улучшения работы сайта. Вы можете выбрать категории или принять все.{' '}
-          <a href="/cookies" className="font-medium text-rose-600 hover:underline" style={{ textDecoration: 'none' }}>
+          <a href="/cookies" className="font-medium text-rose-600! hover:underline" style={{ textDecoration: 'none' }}>
             Подробнее о cookie
           </a>
         </p>

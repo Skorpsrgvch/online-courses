@@ -202,6 +202,9 @@ func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
 		if strings.Contains(titleLower, "бонусы") {
 			isBonus = true
 		}
+		if strings.Contains(titleLower, "работа со шрамом") {
+			isBonus = true
+		}
 
 		// Логика блокировки модулей работает только если доступ не истек
 		if !isBonus && isPurchased && purchasedAt != nil && m.WeekNumber > 1 && !isAccessExpired {

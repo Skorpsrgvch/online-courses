@@ -1,7 +1,7 @@
 
 INSERT INTO users (email, full_name, role, password_hash, created_at)
 VALUES 
-    ('help-olga-pimchenko@yandex.ru', 'Ольга Пимченко', 'admin', '$2a$10$JH/Kx8uNH1qus2TfXupBRuVGeEZ90AW7vnYjt0nbDzOalRvuSnHIO', NOW()),
+    ('help-olga-pimchenko@yandex.ru', 'Ольга Пимченко', 'admin', '$2a$10$JH/Kx8uNH1qus2TfXupBRuVGeEZ90AW7vnYjt0nbDzOalRvuSnHIO', NOW())
 ON CONFLICT (email) DO NOTHING;
 -- =============================================================================
 -- 2. КУРСЫ

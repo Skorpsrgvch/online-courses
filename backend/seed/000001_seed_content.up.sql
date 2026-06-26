@@ -15,7 +15,7 @@ SELECT
     'Женский курс', 
     'Онлайн-курс для женщин, которые хотят улучшить своё здоровье и справиться с деликатными проблемами', 
     false, 5500,
-    (SELECT id FROM users WHERE email = 'admin@test.ru'), 
+    (SELECT id FROM users WHERE email = 'help-olga-pimchenko@yandex.ru'), 
     true, 
     '/images/Course1.jpg',
     'Беременность.||| Первые 8 недель после родов.||| Острые воспалительные процессы и острые боли.|||Наличие злокачественных процессов.

@@ -12,7 +12,7 @@ const PolicyPlaceholderPage: React.FC<PolicyPlaceholderPageProps> = ({ title, te
       <main className="mx-auto flex min-h-[70vh] max-w-4xl flex-col justify-center px-4 py-12 sm:px-6 lg:px-8">
         <Link
           to="/"
-          className="mb-8 inline-flex w-fit items-center text-sm font-medium text-gray-500 transition-colors hover:text-rose-600"
+          className="mb-8 inline-flex w-fit items-center text-sm font-medium text-gray-500! transition-colors hover:text-rose-600!"
           style={{ textDecoration: 'none' }}
         >
           ← На главную

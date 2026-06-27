@@ -197,14 +197,8 @@ func (u *Usecase) Execute(ctx context.Context, input Input) (*Output, error) {
 		isLocked := false
 		var unlockTime *time.Time
 
-		isBonus := false
 		titleLower := strings.ToLower(m.Title)
-		if strings.Contains(titleLower, "бонусы") {
-			isBonus = true
-		}
-		if strings.Contains(titleLower, "работа со шрамом") {
-			isBonus = true
-		}
+		isBonus := strings.Contains(titleLower, "бонус") || strings.Contains(titleLower, "шрам")
 
 		// Логика блокировки модулей работает только если доступ не истек
 		if !isBonus && isPurchased && purchasedAt != nil && m.WeekNumber > 1 && !isAccessExpired {

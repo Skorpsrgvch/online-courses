@@ -78,7 +78,23 @@ services:
       - /etc/letsencrypt/:/etc/letsencrypt/:ro
     depends_on:
       - backend
-
+  caddy:   
+    image: caddy:2
+    container_name: online-courses-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./backend/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+      - /etc/letsencrypt/:/etc/letsencrypt/:ro
+    depends_on:
+      - frontend
+      - backend
 
 volumes:
   pgdata:
+  caddy-data:
+  caddy-config:    
+

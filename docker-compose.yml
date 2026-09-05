@@ -68,9 +68,6 @@ services:
       context: .
       dockerfile: Dockerfile.frontend
     container_name: online-courses-frontend
-    ports:
-      - "80:80"
-      - "443:443"
     volumes:
       - ./backend/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data

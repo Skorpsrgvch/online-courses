@@ -214,7 +214,7 @@ export const Footer: React.FC = () => {
         <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center text-xs text-gray-500">
           <p>&copy; {currentYear} Ольга Пимченко Тазовое здоровье. Все права защищены.</p>
           <p className="mt-2 md:mt-0 text-center md:text-right">
-            Сайт носит информационный характер и не является публичной офертой.
+            Индивидуальный предприниматель Пимченко Ольга Александровна, ИНН: 320801525917, ОГРНИП: 326320000038641
           </p>
         </div>
       </div>

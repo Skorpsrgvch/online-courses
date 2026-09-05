@@ -20,10 +20,8 @@ http://localhost {
     }
 }
 
-# В docker-compose нужно будет передать: DOMAIN=mysite.ru
-{$DOMAIN:80} {
-
-    # Security Headers для всего сайта
+olga-pimchenko.ru {
+    # Security Headers
     header {
         X-Frame-Options "SAMEORIGIN"
         X-Content-Type-Options "nosniff"
@@ -35,7 +33,7 @@ http://localhost {
         reverse_proxy backend:8080
     }
 
-    # Всё остальное -> Фронтенд (Nginx)
+    # Всё остальное -> Фронтенд
     handle {
         reverse_proxy frontend:80
     }

@@ -192,7 +192,7 @@ export const Footer: React.FC = () => {
             <ul className="space-y-3 text-sm pl-0 -ml-7">
               {[
                 { name: 'Политика обработки персональных данных', href: '/privacy-policy' },
-                { name: 'Согласие на обработку ПДн', href: '/consent' },
+                { name: 'Согласие на обработку персональных данных', href: '/consent' },
                 { name: 'Договор оферты', href: '/offer' },
                 { name: 'Пользовательское соглашение', href: '/terms' },
                 { name: 'Cookie', href: '/cookies' }
@@ -216,7 +216,7 @@ export const Footer: React.FC = () => {
         <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center text-xs text-gray-500">
           <p>&copy; {currentYear} Ольга Пимченко Тазовое здоровье. Все права защищены.</p>
           <p className="mt-2 md:mt-0 text-center md:text-right">
-            Сайт носит информационный характер и не является публичной офертой.
+            Индивидуальный предприниматель Пимченко Ольга Александровна, ИНН: 320801525917, ОГРНИП: 326320000038641
           </p>
         </div>
       </div>

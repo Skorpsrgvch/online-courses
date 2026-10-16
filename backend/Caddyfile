@@ -10,10 +10,7 @@
     }
 }
 
-olga-pimchenko.ru {
-
-    tls /etc/letsencrypt/live/olga-pimchenko.ru/fullchain.pem /etc/letsencrypt/live/olga-pimchenko.ru/privkey.pem
-
+localhost {
     header {
         X-Frame-Options "SAMEORIGIN"
         X-Content-Type-Options "nosniff"
@@ -28,3 +25,4 @@ olga-pimchenko.ru {
         reverse_proxy frontend:80
     }
 }
+

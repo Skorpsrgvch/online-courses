@@ -195,7 +195,8 @@ export const Footer: React.FC = () => {
                 { name: 'Согласие на обработку персональных данных', href: '/consent' },
                 { name: 'Договор оферты', href: '/offer' },
                 { name: 'Пользовательское соглашение', href: '/terms' },
-                { name: 'Cookie', href: '/cookies' }
+                { name: 'Cookie', href: '/cookies' },
+                { name: 'Согласие на рассылку', href: '/newsletter-consent' }
               ].map((link) => (
                 <li key={link.name}>
                   <a

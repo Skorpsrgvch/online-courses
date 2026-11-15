@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { coursesService } from '../../api/courses.service';
 import { reviewsService } from '../../api/reviews.service';
 import { useAuth } from '../../context/AuthContext';
@@ -18,15 +18,21 @@ const CoursePage = () => {
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [agreeOffer, setAgreeOffer] = useState(false);
+  const [agreeNewsletter, setAgreeNewsletter] = useState(false);
+  const [checkoutEmail, setCheckoutEmail] = useState('');
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
   const [approvedReviews, setApprovedReviews] = useState<Review[]>([]);
   const [myReview, setMyReview] = useState<Review | null>(null);
 
   const loadData = async () => {
     if (!courseId) return;
     // Не блокируем интерфейс полностью при фоновом обновлении, если данные уже есть
-    if (!courseData) setIsLoading(true); 
+    if (!courseData) setIsLoading(true);
     setError(null);
-    
+
     try {
       const [courseRes, publicReviewsData, allUserReviews] = await Promise.all([
         coursesService.getCourseFull(courseId),
@@ -85,7 +91,7 @@ const CoursePage = () => {
     }
 
     const isFree = courseData.course.price === 0 || courseData.course.is_public;
-  
+
 
     if (isFree && !courseData.course.is_purchased && user?.role !== 'admin') {
       try {
@@ -102,7 +108,7 @@ const CoursePage = () => {
         setIsProcessing(false);
         return;
       }
-    } 
+    }
 
     navigate(`/course/${courseId}/learn`);
   };
@@ -134,6 +140,26 @@ const CoursePage = () => {
       setError(errorMsg);
       setIsProcessing(false);
     }
+  };
+
+  const handleOpenCheckout = () => {
+    if (!requireAuth()) return;
+    if (!courseData) return;
+    setCheckoutError(null);
+    setAgreeOffer(false);
+    setAgreeNewsletter(false);
+    setCheckoutEmail(user?.email || '');
+    setIsCheckoutOpen(true);
+  };
+
+  const handleConfirmCheckout = async () => {
+    if (!agreeOffer) {
+      setCheckoutError('Необходимо согласие с условиями оферты');
+      return;
+    }
+    setCheckoutError(null);
+    setIsCheckoutOpen(false);
+    await handlePurchase(); // та же логика — редирект на ЮKassa
   };
 
   if (isLoading) {
@@ -235,7 +261,7 @@ const CoursePage = () => {
       return {
         text: `Купить за ${course.price} ₽`,
         color: 'bg-green-600 hover:bg-green-700 shadow-green-200',
-        action: handlePurchase,
+        action: handleOpenCheckout,
         disabled: isProcessing
       };
     }
@@ -381,6 +407,138 @@ const CoursePage = () => {
           />
         </section>
       </div>
+
+
+      {isCheckoutOpen && (
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm"
+          onClick={() => setIsCheckoutOpen(false)}
+        >
+          <div className="flex w-full min-h-full items-center justify-center p-4 pb-8">
+            <div
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 sm:p-8 relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setIsCheckoutOpen(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Закрыть"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+
+              <h2 className="text-2xl font-serif font-bold text-gray-900 mb-2 text-center">
+                Оформление покупки
+              </h2>
+              <p className="text-center text-gray-500 text-sm mb-6">
+                {course.title}
+              </p>
+
+              <div className="bg-rose-50 rounded-xl p-4 mb-6 text-center">
+                <p className="text-sm text-rose-700 mb-1">Стоимость курса</p>
+                <p className="text-3xl font-bold text-rose-600">{course.price} ₽</p>
+              </div>
+
+              {/* Email — пока не отправляется, но по ТЗ поле есть */}
+              <div className="mb-5">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email для чека и доступа
+                </label>
+                <input
+                  type="email"
+                  value={checkoutEmail}
+                  onChange={(e) => setCheckoutEmail(e.target.value)}
+                  placeholder="example@mail.ru"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-300 focus:border-rose-400 outline-none transition-all"
+                />
+              </div>
+
+              {/* Галочка оферты — обязательная */}
+              <div className="flex items-start mb-3">
+                <input
+                  type="checkbox"
+                  id="checkout-offer"
+                  checked={agreeOffer}
+                  onChange={(e) => setAgreeOffer(e.target.checked)}
+                  className="h-4 w-4 mt-0.5 text-rose-600 focus:ring-rose-500 border-gray-300 rounded cursor-pointer"
+                />
+                <label htmlFor="checkout-offer" className="ml-2 block text-sm text-gray-600 leading-tight cursor-pointer">
+                  Я принимаю условия{' '}
+                  <Link
+                    to="/offer"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-rose-500! hover:underline!"
+                    style={{ textDecoration: 'none' }}
+                  >
+                    публичной оферты
+                  </Link>{' '}
+                  и подтверждаю ознакомление с{' '}
+                  <Link
+                    to="/privacy-policy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-rose-500! hover:underline!"
+                    style={{ textDecoration: 'none' }}
+                  >
+                    политикой обработки персональных данных
+                  </Link>
+                </label>
+              </div>
+
+              {/* Галочка рассылки — необязательная */}
+              <div className="flex items-start mb-5">
+                <input
+                  type="checkbox"
+                  id="checkout-newsletter"
+                  checked={agreeNewsletter}
+                  onChange={(e) => setAgreeNewsletter(e.target.checked)}
+                  className="h-4 w-4 mt-0.5 text-rose-600 focus:ring-rose-500 border-gray-300 rounded cursor-pointer"
+                />
+                <label htmlFor="checkout-newsletter" className="ml-2 block text-sm text-gray-600 leading-tight cursor-pointer">
+                  Я согласен(на) на получение{' '}
+                  <Link
+                    to="/privacy-policy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-rose-500! hover:underline!"
+                    style={{ textDecoration: 'none' }}
+                  >{' '}
+                  информационной и рекламной рассылки
+                  </Link>
+                   (необязательно)
+                </label>
+              </div>
+
+              {checkoutError && (
+                <div className="p-3 mb-4 bg-red-50 text-red-700 text-sm rounded-lg border border-red-100">
+                  {checkoutError}
+                </div>
+              )}
+
+              <button
+                onClick={handleConfirmCheckout}
+                disabled={isProcessing}
+                className="w-full py-3 px-4 bg-green-600 text-white rounded-2xl! hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold shadow-md shadow-green-200"
+              >
+                {isProcessing ? 'Обработка...' : 'Купить курс'}
+              </button>
+
+              <button
+                onClick={() => setIsCheckoutOpen(false)}
+                className="w-full mt-2 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
